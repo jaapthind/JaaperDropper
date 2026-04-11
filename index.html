@@ -258,7 +258,7 @@ const GAME_STATES = {
     BOOT: "BOOT",
     MENU: "MENU",
     PLAYING: "PLAYING",
-    DYING: "DYING", // NEW ADVANCED STATE
+    DYING: "DYING", 
     DEAD: "DEAD",
     VICTORY: "VICTORY",
     GAME_OVER: "GAME_OVER"
@@ -370,7 +370,6 @@ class SynthesisEngine {
     }
 
     sfxHit() {
-        // Time-freeze crunch sound
         this.playOscillator(120, 'sawtooth', 0.2, 0.8, 10);
         
         if (!this.isReady) return;
@@ -383,7 +382,6 @@ class SynthesisEngine {
     }
 
     sfxEpicBoom() {
-        // Massive bass-drop explosion
         this.playOscillator(80, 'sawtooth', 1.2, 1.5, 5);
         this.playOscillator(40, 'square', 1.0, 1.0, 1);
         
@@ -397,10 +395,10 @@ class SynthesisEngine {
     }
 
     sfxWin() {
-        this.playOscillator(523.25, 'sine', 0.2, 0.5); // C5
-        setTimeout(() => this.playOscillator(659.25, 'sine', 0.2, 0.5), 150); // E5
-        setTimeout(() => this.playOscillator(783.99, 'sine', 0.4, 0.5), 300); // G5
-        setTimeout(() => this.playOscillator(1046.50, 'sine', 0.6, 0.5), 450); // C6
+        this.playOscillator(523.25, 'sine', 0.2, 0.5); 
+        setTimeout(() => this.playOscillator(659.25, 'sine', 0.2, 0.5), 150); 
+        setTimeout(() => this.playOscillator(783.99, 'sine', 0.4, 0.5), 300); 
+        setTimeout(() => this.playOscillator(1046.50, 'sine', 0.6, 0.5), 450); 
     }
 }
 
@@ -463,7 +461,6 @@ class InputManager {
         if (this.keyState.KeyA || this.keyState.ArrowLeft) x -= 1;
         if (this.keyState.KeyD || this.keyState.ArrowRight) x += 1;
         
-        // Normalize diagonal movement
         if (x !== 0 && z !== 0) {
             const length = Math.sqrt(x*x + z*z);
             x /= length;
@@ -501,7 +498,6 @@ const ShaderLibrary = {
         varying vec2 vUv;
         varying vec3 vPos;
 
-        // Simple pseudo-random noise function
         float random(vec2 st) {
             return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
         }
@@ -509,15 +505,14 @@ const ShaderLibrary = {
         void main() {
             vec2 uv = vUv * 4.0;
             
-            // Time-based shifting
             uv.x += time * 0.5;
             uv.y += sin(time * 0.2);
             
             float noise = random(floor(uv));
             float smoothNoise = smoothstep(0.2, 0.8, fract(uv.x * uv.y + time));
             
-            vec3 color1 = vec3(1.0, 0.1, 0.0); // Deep red
-            vec3 color2 = vec3(1.0, 0.8, 0.0); // Bright orange/yellow
+            vec3 color1 = vec3(1.0, 0.1, 0.0); 
+            vec3 color2 = vec3(1.0, 0.8, 0.0); 
             
             vec3 finalColor = mix(color1, color2, smoothNoise * noise);
             
@@ -547,24 +542,20 @@ class RobloxCharacter {
     }
 
     buildCharacterMesh() {
-        // Roblox style blocky character
         const matSkin = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.7 });
         const matShirt = new THREE.MeshStandardMaterial({ color: 0x00ccff, roughness: 0.5 });
         const matPants = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 });
         
-        // Torso
         this.torso = new THREE.Mesh(new THREE.BoxGeometry(this.size * 1.2, this.size * 1.2, this.size * 0.6), matShirt);
         this.torso.position.y = 0;
         this.torso.castShadow = true;
         this.group.add(this.torso);
         
-        // Head
         this.head = new THREE.Mesh(new THREE.BoxGeometry(this.size * 0.8, this.size * 0.8, this.size * 0.8), matSkin);
         this.head.position.y = this.size * 1.0;
         this.head.castShadow = true;
         this.group.add(this.head);
         
-        // Eyes & Mouth (Decals/Simple blocks)
         const matBlack = new THREE.MeshBasicMaterial({ color: 0x000000 });
         const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.1), matBlack);
         eyeL.position.set(-0.2, this.size * 1.0, this.size * 0.41);
@@ -578,22 +569,20 @@ class RobloxCharacter {
         mouth.position.set(0, this.size * 0.85, this.size * 0.41);
         this.group.add(mouth);
 
-        // Arms (Raised up in falling panic mode)
         this.armL = new THREE.Mesh(new THREE.BoxGeometry(this.size * 0.4, this.size * 1.2, this.size * 0.4), matSkin);
         this.armL.position.set(-this.size * 0.9, 0, 0);
-        this.armL.rotation.x = Math.PI; // Raised
+        this.armL.rotation.x = Math.PI;
         this.armL.rotation.z = -0.2;
         this.armL.castShadow = true;
         this.group.add(this.armL);
         
         this.armR = new THREE.Mesh(new THREE.BoxGeometry(this.size * 0.4, this.size * 1.2, this.size * 0.4), matSkin);
         this.armR.position.set(this.size * 0.9, 0, 0);
-        this.armR.rotation.x = Math.PI; // Raised
+        this.armR.rotation.x = Math.PI;
         this.armR.rotation.z = 0.2;
         this.armR.castShadow = true;
         this.group.add(this.armR);
 
-        // Legs
         this.legL = new THREE.Mesh(new THREE.BoxGeometry(this.size * 0.55, this.size * 1.2, this.size * 0.55), matPants);
         this.legL.position.set(-this.size * 0.3, -this.size * 1.2, 0);
         this.legL.castShadow = true;
@@ -608,7 +597,7 @@ class RobloxCharacter {
     reset(yPosition) {
         this.group.position.set(0, yPosition, 0);
         this.velocity.set(0, 0, 0);
-        this.group.rotation.set(Math.PI/2, 0, 0); // Face straight down into the tunnel
+        this.group.rotation.set(Math.PI/2, 0, 0); 
         this.group.visible = true;
         this.isDead = false;
         this.updateCollider();
@@ -617,28 +606,22 @@ class RobloxCharacter {
     update(dt, inputAxis, tunnelBoundary) {
         if (this.isDead) return;
 
-        // Apply input acceleration
         this.velocity.x += inputAxis.x * ENGINE_CONFIG.PLAYER_SPEED * dt;
         this.velocity.z += inputAxis.z * ENGINE_CONFIG.PLAYER_SPEED * dt;
         
-        // Apply physics friction (Air resistance)
         this.velocity.x *= ENGINE_CONFIG.FRICTION;
         this.velocity.z *= ENGINE_CONFIG.FRICTION;
         
-        // Apply Gravity
         this.velocity.y -= ENGINE_CONFIG.BASE_GRAVITY * dt;
         
-        // Terminal Velocity cap
         if (this.velocity.y < -ENGINE_CONFIG.MAX_TERMINAL_VELOCITY) {
             this.velocity.y = -ENGINE_CONFIG.MAX_TERMINAL_VELOCITY;
         }
 
-        // Apply velocity to position
         this.group.position.x += this.velocity.x * dt;
         this.group.position.y += this.velocity.y * dt;
         this.group.position.z += this.velocity.z * dt;
 
-        // Wall Collisions (Restrict player within the tunnel)
         const boundaryLimit = (tunnelBoundary / 2) - (this.size * 1.0);
         
         if (this.group.position.x > boundaryLimit) {
@@ -657,14 +640,12 @@ class RobloxCharacter {
             this.velocity.z = 0;
         }
 
-        // Procedural Animation (Panic flailing)
         const timeOffset = Date.now() * 0.015;
         this.armL.rotation.x = Math.PI + Math.sin(timeOffset) * 0.3;
         this.armR.rotation.x = Math.PI + Math.cos(timeOffset) * 0.3;
         this.legL.rotation.x = Math.sin(timeOffset * 0.8) * 0.2;
         this.legR.rotation.x = Math.cos(timeOffset * 0.8) * 0.2;
         
-        // Body tilt based on movement direction
         this.group.rotation.y = (this.velocity.x * 0.005);
         this.group.rotation.z = -(this.velocity.z * 0.005);
 
@@ -746,12 +727,10 @@ class ObstacleObject {
     }
 
     update(dt, globalTime) {
-        // Update shaders if applicable
         if (this.def.type === 'lava' && this.mesh.material.uniforms) {
             this.mesh.material.uniforms.time.value = globalTime;
         }
 
-        // Apply movement animations
         if (this.def.moveAxis) {
             const speed = this.def.moveSpeed || 10;
             const range = this.def.moveRange || 20;
@@ -763,7 +742,6 @@ class ObstacleObject {
                 this.mesh.position.z = this.initialZ + displacement;
             }
             
-            // Re-sync collider position
             this.collider.update(
                 this.mesh.position.x, 
                 this.mesh.position.y, 
@@ -772,11 +750,8 @@ class ObstacleObject {
             );
         }
 
-        // Apply rotation animations
         if (this.def.rotSpeedY) {
             this.mesh.rotation.y += this.def.rotSpeedY * dt;
-            // Note: Box collider doesn't dynamically rotate perfectly here without complex OBB math.
-            // For a dropper game, AABB approximation on spinning crosses is acceptable and standard.
         }
     }
 
@@ -798,7 +773,6 @@ class RainbowTunnel {
     }
 
     buildTunnel() {
-        // Create concentric rings down the Y axis to exactly match the provided image style
         const segmentHeight = 20;
         const numSegments = Math.floor(this.depth / segmentHeight);
         const thickness = 5;
@@ -806,7 +780,6 @@ class RainbowTunnel {
         for (let i = 0; i < numSegments; i++) {
             const yPos = -(i * segmentHeight);
             
-            // Cycle through rainbow colors
             const colorIndex = i % ENGINE_CONFIG.COLORS.RAINBOW.length;
             const ringColor = ENGINE_CONFIG.COLORS.RAINBOW[colorIndex];
             
@@ -816,10 +789,8 @@ class RainbowTunnel {
                 metalness: 0.1
             });
 
-            // 4 walls per ring
             const w = this.width;
             
-            // North wall
             const geoN = new THREE.BoxGeometry(w + thickness*2, segmentHeight, thickness);
             const meshN = new THREE.Mesh(geoN, material);
             meshN.position.set(0, yPos, -w/2 - thickness/2);
@@ -827,7 +798,6 @@ class RainbowTunnel {
             this.scene.add(meshN);
             this.segments.push(meshN);
             
-            // South wall
             const geoS = new THREE.BoxGeometry(w + thickness*2, segmentHeight, thickness);
             const meshS = new THREE.Mesh(geoS, material);
             meshS.position.set(0, yPos, w/2 + thickness/2);
@@ -835,7 +805,6 @@ class RainbowTunnel {
             this.scene.add(meshS);
             this.segments.push(meshS);
             
-            // East wall
             const geoE = new THREE.BoxGeometry(thickness, segmentHeight, w);
             const meshE = new THREE.Mesh(geoE, material);
             meshE.position.set(w/2 + thickness/2, yPos, 0);
@@ -843,7 +812,6 @@ class RainbowTunnel {
             this.scene.add(meshE);
             this.segments.push(meshE);
             
-            // West wall
             const geoW = new THREE.BoxGeometry(thickness, segmentHeight, w);
             const meshW = new THREE.Mesh(geoW, material);
             meshW.position.set(-w/2 - thickness/2, yPos, 0);
@@ -869,7 +837,6 @@ class SafeZoneTarget {
         this.yPos = yPosition;
         this.width = width;
         
-        // The green safe liquid/block
         const safeGeo = new THREE.BoxGeometry(width, 10, width);
         const safeMat = new THREE.MeshStandardMaterial({
             color: ENGINE_CONFIG.COLORS.SAFE,
@@ -882,7 +849,6 @@ class SafeZoneTarget {
         this.safeMesh.position.set(0, yPosition, 0);
         this.scene.add(this.safeMesh);
         
-        // The solid death floor beneath everything to catch misses
         const floorWidth = ENGINE_CONFIG.TUNNEL_WIDTH * 2;
         const floorGeo = new THREE.BoxGeometry(floorWidth, 20, floorWidth);
         const floorMat = new THREE.MeshStandardMaterial({ color: ENGINE_CONFIG.COLORS.DEATH });
@@ -890,7 +856,6 @@ class SafeZoneTarget {
         this.floorMesh.position.set(0, yPosition - 15, 0);
         this.scene.add(this.floorMesh);
         
-        // Setup specialized colliders
         this.colliderSafe = new AABB_Collider(0, yPosition, 0, width, 10, width);
         this.colliderDeath = new AABB_Collider(0, yPosition - 15, 0, floorWidth, 20, floorWidth);
     }
@@ -923,7 +888,6 @@ class ParticleSystem {
         for (let i = 0; i < count; i++) {
             const pMesh = new THREE.Mesh(this.baseGeo, explosionMat);
             
-            // Random offset around center
             pMesh.position.set(
                 position.x + (Math.random() - 0.5) * 5,
                 position.y + (Math.random() - 0.5) * 5,
@@ -932,12 +896,11 @@ class ParticleSystem {
             
             this.scene.add(pMesh);
             
-            // Assign explosive velocity
             this.particles.push({
                 mesh: pMesh,
                 velocity: new THREE.Vector3(
                     (Math.random() - 0.5) * 60,
-                    (Math.random() * 50) + 10, // Burst upwards
+                    (Math.random() * 50) + 10, 
                     (Math.random() - 0.5) * 60
                 ),
                 life: 1.0,
@@ -950,24 +913,19 @@ class ParticleSystem {
         for (let i = this.particles.length - 1; i >= 0; i--) {
             let p = this.particles[i];
             
-            // Gravity effect on particles
             p.velocity.y -= ENGINE_CONFIG.BASE_GRAVITY * dt;
             
-            // Move
             p.mesh.position.x += p.velocity.x * dt;
             p.mesh.position.y += p.velocity.y * dt;
             p.mesh.position.z += p.velocity.z * dt;
             
-            // Spin
             p.mesh.rotation.x += dt * 10;
             p.mesh.rotation.y += dt * 10;
             
-            // Fade out via scale
             p.life -= p.decay;
             const scale = Math.max(0, p.life);
             p.mesh.scale.set(scale, scale, scale);
             
-            // Remove dead particles
             if (p.life <= 0) {
                 this.scene.remove(p.mesh);
                 this.particles.splice(i, 1);
@@ -989,48 +947,40 @@ class ParticleSystem {
 
 class LevelDataBuilder {
     
-    // Procedurally generate massive amounts of explicit level configurations
-    // Procedurally generate massive amounts of explicit level configurations
     static buildLevel(levelIndex) {
         
         const tw = ENGINE_CONFIG.TUNNEL_WIDTH;
         const hw = tw / 2;
-        // EXPONENTIAL SCALING: The abyss gets exponentially deeper every level
         const depth = Math.floor(ENGINE_CONFIG.TUNNEL_DEPTH_BASE + (Math.pow(levelIndex, 1.5) * ENGINE_CONFIG.TUNNEL_DEPTH_MULT));
         
         let config = {
             depth: depth,
-            safeZoneWidth: Math.max(12, 40 - (levelIndex * 0.3)), // Shrinks as levels progress
+            safeZoneWidth: Math.max(12, 40 - (levelIndex * 0.3)), 
             obstacles: []
         };
 
-        // Determine spacing based on difficulty
         const numObstacleLayers = Math.floor(depth / 90) - 2;
         const spacingY = 230;
 
-        // Loop and build specific obstacles layer by layer
         for (let layer = 1; layer <= numObstacleLayers; layer++) {
             
             let yPos = -(layer * spacingY) - 50;
             let difficultySeed = Math.random() + (levelIndex * 0.01);
             
-            // Randomly pick a color from the rainbow
             const colorIdx = Math.floor(Math.random() * ENGINE_CONFIG.COLORS.RAINBOW.length);
             const layerColor = ENGINE_CONFIG.COLORS.RAINBOW[colorIdx];
 
-            // Select obstacle pattern type based on difficulty and RNG
             let patternType = 0;
-            if (difficultySeed < 0.2) patternType = 1; // Side ledges
-            else if (difficultySeed < 0.4) patternType = 2; // Center cross
-            else if (difficultySeed < 0.6) patternType = 3; // Moving platform
-            else if (difficultySeed < 0.8) patternType = 4; // Lava grid
-            else patternType = 5; // Rotating beams
+            if (difficultySeed < 0.2) patternType = 1; 
+            else if (difficultySeed < 0.4) patternType = 2; 
+            else if (difficultySeed < 0.6) patternType = 3; 
+            else if (difficultySeed < 0.8) patternType = 4; 
+            else patternType = 5; 
 
-            // Override for early levels to keep them simple
             if (levelIndex < 5 && patternType > 3) patternType = 1;
 
             switch(patternType) {
-                case 1: // Side Ledges
+                case 1: 
                     config.obstacles.push({
                         type: 'solid', x: -hw + 15, y: yPos, z: 0, w: 30, h: 10, d: tw, color: layerColor
                     });
@@ -1041,7 +991,7 @@ class LevelDataBuilder {
                     }
                     break;
                     
-                case 2: // Center Cross
+                case 2: 
                     config.obstacles.push({
                         type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 15, color: layerColor
                     });
@@ -1050,7 +1000,7 @@ class LevelDataBuilder {
                     });
                     break;
 
-                case 3: // Moving Platforms
+                case 3: 
                     let moveAxis = Math.random() > 0.5 ? 'x' : 'z';
                     let moveSpeed = 2 + (levelIndex * 0.1);
                     config.obstacles.push({
@@ -1059,7 +1009,7 @@ class LevelDataBuilder {
                     });
                     break;
 
-                case 4: // Lava Blocks (Deadly)
+                case 4: 
                     let lw = 20 + Math.random() * 20;
                     let ld = 20 + Math.random() * 20;
                     let lx = (Math.random() - 0.5) * (tw - lw);
@@ -1067,13 +1017,12 @@ class LevelDataBuilder {
                     config.obstacles.push({
                         type: 'lava', x: lx, y: yPos, z: lz, w: lw, h: 15, d: ld
                     });
-                    // Add secondary solid block
                     config.obstacles.push({
                         type: 'solid', x: -lx, y: yPos, z: -lz, w: lw, h: 10, d: ld, color: layerColor
                     });
                     break;
 
-                case 5: // Rotating Beams
+                case 5: 
                     let rotSpeed = 1.0 + (levelIndex * 0.05);
                     config.obstacles.push({
                         type: 'solid', x: 0, y: yPos, z: 0, w: tw - 10, h: 8, d: 8, color: layerColor, rotSpeedY: rotSpeed
@@ -1081,7 +1030,6 @@ class LevelDataBuilder {
                     break;
             }
 
-            // High level difficulty spike - add transparent glass panes randomly
             if (levelIndex > 20 && Math.random() > 0.7) {
                 config.obstacles.push({
                     type: 'glass', x: 0, y: yPos - 40, z: 0, w: tw, h: 2, d: hw
@@ -1089,15 +1037,13 @@ class LevelDataBuilder {
             }
         }
 
-        // LEVEL 100 SPECIAL OVERRIDE - The Ultimate Challenge
         if (levelIndex === 100) {
             config.depth = 15000;
-            config.safeZoneWidth = 8; // Extremely tiny target
+            config.safeZoneWidth = 8; 
             config.obstacles = [];
             
-            // Massive tight spiral of lava and rotating beams
             for (let y = -100; y > -14500; y -= 60) {
-                let rSpeed = (y / -14500) * 5.0; // Gets faster as you fall
+                let rSpeed = (y / -14500) * 5.0; 
                 config.obstacles.push({
                     type: 'lava', x: 0, y: y, z: 0, w: tw * 0.9, h: 5, d: 5, rotSpeedY: rSpeed
                 });
@@ -1117,7 +1063,6 @@ class LevelDataBuilder {
 
 class GameEngine {
     constructor() {
-        // DOM bindings
         this.canvas = document.getElementById('game-canvas');
         this.uiLevel = document.getElementById('level-value');
         this.uiFails = document.getElementById('fails-value');
@@ -1125,7 +1070,6 @@ class GameEngine {
         this.titleMain = document.getElementById('title-text');
         this.titleSub = document.getElementById('action-text');
 
-        // Three.js Core Setup
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false, powerPreference: "high-performance" });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
@@ -1134,53 +1078,44 @@ class GameEngine {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x000000);
         
-        // Add atmospheric fog deep down
         this.scene.fog = new THREE.FogExp2(0x000000, 0.0015);
 
         this.camera = new THREE.PerspectiveCamera(ENGINE_CONFIG.FOV, window.innerWidth / window.innerHeight, 0.1, 3000);
         this.cameraOffset = new THREE.Vector3(0, 15, 8);
 
-        // Lighting Architecture
         this.setupLighting();
 
-        // Game Systems Initialization
         this.input = new InputManager();
         this.audio = new SynthesisEngine();
         this.player = new RobloxCharacter(this.scene);
         this.particles = new ParticleSystem(this.scene);
 
-        // State Variables
         this.gameState = GAME_STATES.BOOT;
         this.currentLevel = 1;
         this.fails = 0;
         this.clock = new THREE.Clock();
         this.globalTime = 0;
+        this.deathTimer = 0;
 
-        // Level Containers
         this.tunnel = null;
         this.safeZoneTarget = null;
         this.obstacles = [];
 
-        // Events
         window.addEventListener('resize', this.onWindowResize.bind(this), false);
         this.onWindowResize();
 
-        // Start Boot Sequence
         this.setGameState(GAME_STATES.MENU);
         this.gameLoop();
     }
 
     setupLighting() {
-        // Ambient fill
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambientLight);
 
-        // Directional Sun/Key Light
         this.dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
         this.dirLight.position.set(20, 50, 20);
         this.dirLight.castShadow = true;
         
-        // Optimize shadow map
         this.dirLight.shadow.mapSize.width = 1024;
         this.dirLight.shadow.mapSize.height = 1024;
         this.dirLight.shadow.camera.near = 0.5;
@@ -1194,7 +1129,6 @@ class GameEngine {
         
         this.scene.add(this.dirLight);
 
-        // Player Point Light for deep dark areas
         this.playerLight = new THREE.PointLight(0xffffff, 0.6, 150);
         this.scene.add(this.playerLight);
     }
@@ -1205,12 +1139,9 @@ class GameEngine {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // STATE MACHINE
-    // STATE MACHINE
     setGameState(newState) {
         this.gameState = newState;
         
-        // Show/Hide UI overlays
         if (newState === GAME_STATES.PLAYING || newState === GAME_STATES.DYING) {
             this.overlay.classList.add('hidden');
         } else {
@@ -1225,17 +1156,15 @@ class GameEngine {
                 break;
                 
             case GAME_STATES.PLAYING:
-                this.audio.initialize(); // Require user gesture
+                this.audio.initialize(); 
                 this.audio.sfxDrop();
                 break;
                 
             case GAME_STATES.DYING:
-                // DRAMATIC TIME FREEZE
                 this.deathTimer = 0;
-                this.audio.sfxHit(); // The initial crunch
-                this.player.velocity.set(0,0,0); // Freeze player instantly
+                this.audio.sfxHit(); 
+                this.player.velocity.set(0,0,0); 
                 
-                // Screen goes dark red vignette
                 document.getElementById('speed-lines').style.background = 'radial-gradient(circle, transparent 10%, rgba(255,0,0,0.8) 100%)';
                 break;
 
@@ -1245,13 +1174,11 @@ class GameEngine {
                 this.fails++;
                 this.uiFails.innerText = this.fails;
                 
-                this.audio.sfxEpicBoom(); // The huge bass drop
+                this.audio.sfxEpicBoom(); 
                 this.player.kill();
                 
-                // Massive blood/block explosion (150 particles)
                 this.particles.spawnSplat(this.player.group.position, 150, 0xff0000);
                 
-                // FLASH SCREEN PURE WHITE THEN FADE BACK
                 document.body.style.backgroundColor = '#ffffff';
                 document.getElementById('speed-lines').style.background = 'none';
                 setTimeout(() => {
@@ -1265,7 +1192,6 @@ class GameEngine {
                 this.titleSub.innerText = "PRESS SPACE TO ADVANCE";
                 this.audio.sfxWin();
                 
-                // Halt momentum
                 this.player.velocity.set(0, 0, 0);
                 break;
                 
@@ -1277,7 +1203,6 @@ class GameEngine {
         }
     }
 
-    // LEVEL MANAGEMENT
     clearCurrentLevel() {
         if (this.tunnel) this.tunnel.destroy();
         if (this.safeZoneTarget) this.safeZoneTarget.destroy();
@@ -1292,13 +1217,10 @@ class GameEngine {
     loadLevel(levelIndex) {
         this.clearCurrentLevel();
         
-        // Update UI
         this.uiLevel.innerText = levelIndex;
         
-        // Fetch massive procedural logic data
         const levelData = LevelDataBuilder.buildLevel(levelIndex);
         
-        // Construct visual elements
         this.tunnel = new RainbowTunnel(this.scene, levelData.depth, ENGINE_CONFIG.TUNNEL_WIDTH);
         
         for (let i = 0; i < levelData.obstacles.length; i++) {
@@ -1307,33 +1229,43 @@ class GameEngine {
 
         this.safeZoneTarget = new SafeZoneTarget(this.scene, -levelData.depth, levelData.safeZoneWidth, levelData.depth);
 
-        // Reset player at top
         this.player.reset(0);
         
-        // Snap camera to start
         this.updateCamera(true);
     }
-    detectCollisions() { const pCol = this.player.collider; for (let obs of this.obstacles) { if (pCol.intersects(obs.collider)) { this.setGameState(GAME_STATES.DYING); return; } } if (pCol.intersects(this.safeZoneTarget.colliderDeath)) { if (pCol.intersects(this.safeZoneTarget.colliderSafe)) { this.setGameState(GAME_STATES.VICTORY); } else { this.setGameState(GAME_STATES.DYING); } } }
-    // CAMERA LOGIC
+    
+    detectCollisions() { 
+        const pCol = this.player.collider; 
+        for (let obs of this.obstacles) { 
+            if (pCol.intersects(obs.collider)) { 
+                this.setGameState(GAME_STATES.DYING); 
+                return; 
+            } 
+        } 
+        if (pCol.intersects(this.safeZoneTarget.colliderDeath)) { 
+            if (pCol.intersects(this.safeZoneTarget.colliderSafe)) { 
+                this.setGameState(GAME_STATES.VICTORY); 
+            } else { 
+                this.setGameState(GAME_STATES.DYING); 
+            } 
+        } 
+    }
+
     updateCamera(snap = false) {
-        // Target position is behind and above the player
         const targetPos = this.player.group.position.clone().add(this.cameraOffset);
         
         if (snap) {
             this.camera.position.copy(targetPos);
         } else {
-            // Smooth lerp
             this.camera.position.lerp(targetPos, ENGINE_CONFIG.CAMERA_SMOOTHING);
         }
         
-        // Dynamically calculate look-ahead point based on falling velocity
         const lookAheadDist = 20 + Math.abs(this.player.velocity.y * 0.15);
         const lookTarget = this.player.group.position.clone();
         lookTarget.y -= lookAheadDist;
         
         this.camera.lookAt(lookTarget);
 
-        // Sync lights
         this.dirLight.position.set(
             this.player.group.position.x + 20, 
             this.player.group.position.y + 30, 
@@ -1343,11 +1275,9 @@ class GameEngine {
         this.playerLight.position.copy(this.player.group.position);
     }
 
-    // MAIN LOOP
     gameLoop() {
         requestAnimationFrame(this.gameLoop.bind(this));
         
-        // Calculate delta time, clamp to avoid massive physics jumps on lag
         const dt = Math.min(this.clock.getDelta(), 0.05); 
         this.globalTime += dt;
 
@@ -1356,38 +1286,30 @@ class GameEngine {
                 if (this.input.consumeAction()) {
                     this.setGameState(GAME_STATES.PLAYING);
                 }
-                // Idle camera spin
-                this.camera.position.x = Math.sin(this.globalTime * 0.5) * 20;
-                this.camera.position.z = Math.cos(this.globalTime * 0.5) * 20;
-                this.camera.lookAt(0, -50, 0);
+                this.camera.position.set(Math.sin(this.globalTime * 0.5) * 30, 15, Math.cos(this.globalTime * 0.5) * 30);
+                this.camera.lookAt(0, -20, 0);
                 break;
 
             case GAME_STATES.PLAYING:
-                // 1. Process Input & Player Physics
                 const axes = this.input.getHorizontalAxis();
                 this.player.update(dt, axes, ENGINE_CONFIG.TUNNEL_WIDTH);
                 
-                // 2. Update Dynamic Obstacles & Shaders
                 for (let i = 0; i < this.obstacles.length; i++) {
                     this.obstacles[i].update(dt, this.globalTime);
                 }
                 
-                // 3. Resolve Collisions
                 this.detectCollisions();
                 
-                // 4. Follow Cam
                 this.updateCamera();
                 break;
                 
             case GAME_STATES.DYING:
-                // Dramatic slow-mo zoom before the boom
                 this.deathTimer += dt;
-                this.camera.position.z -= 15 * dt; // slow dolly zoom in
-                this.camera.fov -= 25 * dt; // vertigo effect
+                this.camera.position.z -= 15 * dt; 
+                this.camera.fov -= 25 * dt; 
                 this.camera.updateProjectionMatrix();
                 
-                if (this.deathTimer > 0.8) { // Wait 0.8 seconds in frozen suspense
-                    // Reset FOV before boom
+                if (this.deathTimer > 0.8) { 
                     this.camera.fov = ENGINE_CONFIG.FOV;
                     this.camera.updateProjectionMatrix();
                     this.setGameState(GAME_STATES.DEAD);
@@ -1395,7 +1317,6 @@ class GameEngine {
                 break;
 
             case GAME_STATES.DEAD:
-                // Update blood splat particles
                 this.particles.update(dt);
                 
                 if (this.input.consumeAction()) {
@@ -1417,29 +1338,21 @@ class GameEngine {
                 break;
                 
             case GAME_STATES.GAME_OVER:
-                // Idle camera rotation around the final safe zone
                 this.camera.position.x = Math.sin(this.globalTime) * 30;
                 this.camera.position.z = Math.cos(this.globalTime) * 30;
                 this.camera.lookAt(0, this.safeZoneTarget.yPos, 0);
                 break;
         }
 
-        // Render Frame
         this.renderer.render(this.scene, this.camera);
     }
-
-    // ============================================================================
-// COPY AND PASTE THIS ENTIRE BLOCK AT THE BOTTOM OF YOUR <script> TAG
-// EXACTLY BEFORE THE window.onload BOOTSTRAP TO ADD THE 3D SPAWN LOBBY
-// ============================================================================
-
+}
 
 // ============================================================================
 // 11. BOOTSTRAP
 // ============================================================================
 
 window.onload = () => {
-    // Initiate Game Engine once DOM is ready
     const dropperGame = new GameEngine();
 };
 

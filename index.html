@@ -232,7 +232,7 @@ const ENGINE_CONFIG = {
     BASE_GRAVITY: 95.0,
     MAX_TERMINAL_VELOCITY: 300.0,
     PLAYER_SIZE: 2.5,
-    PLAYER_SPEED: 60.0,
+    PLAYER_SPEED: 190.0,
     FRICTION: 0.85,
     CAMERA_SMOOTHING: 0.12,
     FOV: 95,
@@ -1411,6 +1411,219 @@ class GameEngine {
     }
 }
 
+    // ============================================================================
+// COPY AND PASTE THIS ENTIRE BLOCK AT THE BOTTOM OF YOUR <script> TAG
+// EXACTLY BEFORE THE window.onload BOOTSTRAP TO ADD THE 3D SPAWN LOBBY
+// ============================================================================
+
+class SpawnLobby {
+    constructor(scene) {
+        this.scene = scene;
+        this.group = new THREE.Group();
+        
+        const tw = ENGINE_CONFIG.TUNNEL_WIDTH;
+        const pw = tw * 2.5; 
+        const thickness = 10;
+        
+        const mat = new THREE.MeshStandardMaterial({ 
+            color: 0x333333, 
+            roughness: 0.8, 
+            metalness: 0.2 
+        });
+
+        const n = new THREE.Mesh(new THREE.BoxGeometry(pw, thickness, (pw-tw)/2), mat);
+        n.position.set(0, -thickness/2, -tw/2 - (pw-tw)/4);
+        n.receiveShadow = true;
+        
+        const s = new THREE.Mesh(new THREE.BoxGeometry(pw, thickness, (pw-tw)/2), mat);
+        s.position.set(0, -thickness/2, tw/2 + (pw-tw)/4);
+        s.receiveShadow = true;
+        
+        const e = new THREE.Mesh(new THREE.BoxGeometry((pw-tw)/2, thickness, tw), mat);
+        e.position.set(tw/2 + (pw-tw)/4, -thickness/2, 0);
+        e.receiveShadow = true;
+        
+        const w = new THREE.Mesh(new THREE.BoxGeometry((pw-tw)/2, thickness, tw), mat);
+        w.position.set(-tw/2 - (pw-tw)/4, -thickness/2, 0);
+        w.receiveShadow = true;
+
+        this.group.add(n, s, e, w);
+        this.scene.add(this.group);
+    }
+    
+    destroy() {
+        this.scene.remove(this.group);
+    }
+}
+
+RobloxCharacter.prototype.reset = function(yPosition) {
+    this.group.position.set(0, 5, -ENGINE_CONFIG.TUNNEL_WIDTH/2 - 10);
+    this.velocity.set(0, 0, 0);
+    this.group.rotation.set(0, Math.PI, 0); 
+    this.group.visible = true;
+    this.isDead = false;
+    this.isGrounded = false;
+    this.updateCollider();
+};
+
+RobloxCharacter.prototype.update = function(dt, inputAxis, tunnelBoundary, isLobby = false) {
+    if (this.isDead) return;
+
+    if (isLobby) {
+        const walkSpeed = 40.0;
+        this.velocity.x += inputAxis.x * walkSpeed * dt;
+        this.velocity.z += inputAxis.z * walkSpeed * dt;
+        this.velocity.x *= 0.8; 
+        this.velocity.z *= 0.8;
+        
+        this.velocity.y -= ENGINE_CONFIG.BASE_GRAVITY * dt;
+        
+        this.group.position.x += this.velocity.x * dt;
+        this.group.position.y += this.velocity.y * dt;
+        this.group.position.z += this.velocity.z * dt;
+
+        const distFromCenter = Math.max(Math.abs(this.group.position.x), Math.abs(this.group.position.z));
+        
+        if (distFromCenter > tunnelBoundary/2 && this.group.position.y <= 0) {
+            this.group.position.y = 0;
+            this.velocity.y = 0;
+            this.isGrounded = true;
+        } else {
+            this.isGrounded = false;
+        }
+
+        if (Math.abs(this.velocity.x) > 0.1 || Math.abs(this.velocity.z) > 0.1) {
+            this.group.rotation.y = Math.atan2(this.velocity.x, this.velocity.z);
+        }
+        
+        this.group.rotation.x = 0;
+        this.group.rotation.z = 0;
+
+        if (this.isGrounded && (Math.abs(this.velocity.x) > 1 || Math.abs(this.velocity.z) > 1)) {
+            const timeOffset = Date.now() * 0.015;
+            this.armL.rotation.x = Math.sin(timeOffset) * 0.5;
+            this.armR.rotation.x = -Math.sin(timeOffset) * 0.5;
+            this.legL.rotation.x = -Math.sin(timeOffset) * 0.5;
+            this.legR.rotation.x = Math.sin(timeOffset) * 0.5;
+        } else {
+            this.armL.rotation.x = 0; 
+            this.armR.rotation.x = 0;
+            this.legL.rotation.x = 0; 
+            this.legR.rotation.x = 0;
+        }
+
+    } else {
+        this.velocity.x += inputAxis.x * ENGINE_CONFIG.PLAYER_SPEED * dt;
+        this.velocity.z += inputAxis.z * ENGINE_CONFIG.PLAYER_SPEED * dt;
+        this.velocity.x *= ENGINE_CONFIG.FRICTION;
+        this.velocity.z *= ENGINE_CONFIG.FRICTION;
+        this.velocity.y -= ENGINE_CONFIG.BASE_GRAVITY * dt;
+        
+        if (this.velocity.y < -ENGINE_CONFIG.MAX_TERMINAL_VELOCITY) {
+            this.velocity.y = -ENGINE_CONFIG.MAX_TERMINAL_VELOCITY;
+        }
+
+        this.group.position.x += this.velocity.x * dt;
+        this.group.position.y += this.velocity.y * dt;
+        this.group.position.z += this.velocity.z * dt;
+
+        const boundaryLimit = (tunnelBoundary / 2) - (this.size * 1.0);
+        if (this.group.position.x > boundaryLimit) { this.group.position.x = boundaryLimit; this.velocity.x = 0; }
+        else if (this.group.position.x < -boundaryLimit) { this.group.position.x = -boundaryLimit; this.velocity.x = 0; }
+        if (this.group.position.z > boundaryLimit) { this.group.position.z = boundaryLimit; this.velocity.z = 0; }
+        else if (this.group.position.z < -boundaryLimit) { this.group.position.z = -boundaryLimit; this.velocity.z = 0; }
+
+        const timeOffset = Date.now() * 0.015;
+        this.armL.rotation.x = Math.PI + Math.sin(timeOffset) * 0.3;
+        this.armR.rotation.x = Math.PI + Math.cos(timeOffset) * 0.3;
+        this.legL.rotation.x = Math.sin(timeOffset * 0.8) * 0.2;
+        this.legR.rotation.x = Math.cos(timeOffset * 0.8) * 0.2;
+        
+        this.group.rotation.x = Math.PI/2;
+        this.group.rotation.y = (this.velocity.x * 0.005);
+        this.group.rotation.z = -(this.velocity.z * 0.005);
+    }
+
+    this.updateCollider();
+};
+
+const originalLoadLevel = GameEngine.prototype.loadLevel;
+GameEngine.prototype.loadLevel = function(levelIndex) {
+    originalLoadLevel.call(this, levelIndex);
+    if (this.lobbyPlatform) this.lobbyPlatform.destroy();
+    this.lobbyPlatform = new SpawnLobby(this.scene);
+    
+    this.titleMain.innerText = "LOBBY - LEVEL " + levelIndex;
+    this.titleSub.innerText = "WALK INTO THE HOLE TO DROP";
+};
+
+GameEngine.prototype.gameLoop = function() {
+    requestAnimationFrame(this.gameLoop.bind(this));
+    
+    const dt = Math.min(this.clock.getDelta(), 0.05); 
+    this.globalTime += dt;
+
+    if (this.gameState === GAME_STATES.MENU && this.input.actionTriggered && this.player.isGrounded) {
+        this.player.velocity.y = 45; 
+        this.input.actionTriggered = false;
+    }
+
+    switch (this.gameState) {
+        case GAME_STATES.MENU:
+            const lobbyAxes = this.input.getHorizontalAxis();
+            this.player.update(dt, lobbyAxes, ENGINE_CONFIG.TUNNEL_WIDTH, true);
+            
+            if (this.player.group.position.y < -5) {
+                this.setGameState(GAME_STATES.PLAYING);
+            }
+            
+            const lobbyCamTarget = this.player.group.position.clone().add(new THREE.Vector3(0, 15, 25));
+            this.camera.position.lerp(lobbyCamTarget, 0.1);
+            this.camera.lookAt(this.player.group.position);
+            
+            this.dirLight.position.set(this.player.group.position.x + 20, this.player.group.position.y + 30, this.player.group.position.z + 20);
+            this.dirLight.target = this.player.group;
+            break;
+
+        case GAME_STATES.PLAYING:
+            const axes = this.input.getHorizontalAxis();
+            this.player.update(dt, axes, ENGINE_CONFIG.TUNNEL_WIDTH, false);
+            for (let i = 0; i < this.obstacles.length; i++) this.obstacles[i].update(dt, this.globalTime);
+            this.detectCollisions();
+            this.updateCamera();
+            break;
+
+        case GAME_STATES.DEAD:
+            this.particles.update(dt);
+            if (this.input.consumeAction()) {
+                this.loadLevel(this.currentLevel);
+                this.setGameState(GAME_STATES.MENU); 
+                this.overlay.classList.remove('hidden');
+            }
+            break;
+
+        case GAME_STATES.VICTORY:
+            if (this.input.consumeAction()) {
+                this.currentLevel++;
+                if (this.currentLevel > ENGINE_CONFIG.TOTAL_LEVELS) {
+                    this.setGameState(GAME_STATES.GAME_OVER);
+                } else {
+                    this.loadLevel(this.currentLevel);
+                    this.setGameState(GAME_STATES.MENU); 
+                    this.overlay.classList.remove('hidden');
+                }
+            }
+            break;
+            
+        case GAME_STATES.GAME_OVER:
+            this.camera.position.x = Math.sin(this.globalTime) * 30;
+            this.camera.position.z = Math.cos(this.globalTime) * 30;
+            this.camera.lookAt(0, this.safeZoneTarget.yPos, 0);
+            break;
+    }
+
+    this.renderer.render(this.scene, this.camera);
+};
 // ============================================================================
 // 11. BOOTSTRAP
 // ============================================================================

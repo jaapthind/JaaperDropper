@@ -1313,7 +1313,7 @@ class GameEngine {
         // Snap camera to start
         this.updateCamera(true);
     }
-
+    detectCollisions() { const pCol = this.player.collider; for (let obs of this.obstacles) { if (pCol.intersects(obs.collider)) { this.setGameState(GAME_STATES.DYING); return; } } if (pCol.intersects(this.safeZoneTarget.colliderDeath)) { if (pCol.intersects(this.safeZoneTarget.colliderSafe)) { this.setGameState(GAME_STATES.VICTORY); } else { this.setGameState(GAME_STATES.DYING); } } }
     // CAMERA LOGIC
     updateCamera(snap = false) {
         // Target position is behind and above the player

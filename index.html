@@ -2,480 +2,871 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dumbodropper</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>3D Dropper - Infinite Fall</title>
 <style>
-    body {
+    body, html {
         margin: 0;
         padding: 0;
-        background-color: #050505;
-        color: #ffffff;
-        font-family: 'Courier New', Courier, monospace;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
+        background-color: #000;
+        font-family: 'Courier New', Courier, monospace;
         user-select: none;
     }
-    #gameContainer {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-    canvas {
-        background-color: #111111;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
-        border: 2px solid #333;
-    }
-    #uiLayer {
+    #game-container {
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
+        z-index: 1;
+    }
+    #ui-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2;
         pointer-events: none;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
     }
-    .hud {
+    .hud-element {
         padding: 20px;
+        color: #fff;
         font-size: 24px;
         font-weight: bold;
-        text-shadow: 2px 2px 4px #000;
+        text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+    }
+    .top-hud {
         display: flex;
         justify-content: space-between;
     }
-    #levelDisplay {
-        color: #00ffcc;
-    }
-    #deathDisplay {
-        color: #ff3333;
-    }
-    #messageOverlay {
+    #center-message {
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        font-size: 48px;
-        font-weight: bold;
+        font-size: 64px;
+        color: #fff;
         text-align: center;
-        text-shadow: 3px 3px 6px #000;
+        text-transform: uppercase;
+        text-shadow: 4px 4px 0 #000;
         opacity: 0;
-        transition: opacity 0.5s ease;
+        transition: opacity 0.2s;
     }
-    .show-message {
+    .visible {
         opacity: 1 !important;
     }
+    #crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 10px;
+        height: 10px;
+        background: rgba(255, 255, 255, 0.5);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-<div id="gameContainer">
-    <canvas id="gameCanvas" width="800" height="900"></canvas>
-    <div id="uiLayer">
-        <div class="hud">
-            <span id="levelDisplay">LEVEL: 1 / 100</span>
-            <span id="deathDisplay">DEATHS: 0</span>
-        </div>
-        <div id="messageOverlay">PREPARE TO DROP</div>
+<div id="game-container"></div>
+<div id="ui-layer">
+    <div class="top-hud">
+        <div id="level-display" class="hud-element">LEVEL: 1 / 20</div>
+        <div id="fails-display" class="hud-element">FAILS: 0</div>
     </div>
+    <div id="crosshair"></div>
+    <div id="center-message">PRESS SPACE TO DROP</div>
 </div>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const levelDisplay = document.getElementById('levelDisplay');
-const deathDisplay = document.getElementById('deathDisplay');
-const messageOverlay = document.getElementById('messageOverlay');
+/**
+ * 3D DROPPER ENGINE
+ * Production-Ready Source Code
+ * Framework: Three.js
+ */
 
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 900;
-const GRAVITY = 0.4;
-const MAX_FALL_SPEED = 25;
-const PLAYER_SPEED = 8;
-const PLAYER_FRICTION = 0.85;
-const TOTAL_LEVELS = 100;
-
-let currentLevelIndex = 1;
-let deaths = 0;
-let gameState = 'START'; 
-let cameraY = 0;
-let particles = [];
-let currentLevelData = null;
-
-const keys = {
-    ArrowLeft: false,
-    ArrowRight: false,
-    a: false,
-    d: false,
-    A: false,
-    D: false
+// ==========================================
+// CONSTANTS & CONFIGURATION
+// ==========================================
+const CONFIG = {
+    PLAYER_SIZE: 1.5,
+    GRAVITY: 60.0,
+    MAX_FALL_SPEED: 120.0,
+    MOVE_SPEED: 25.0,
+    FRICTION: 0.90,
+    CAMERA_OFFSET: new THREE.Vector3(0, 5, 2),
+    LEVEL_DEPTH: 800,
+    TUNNEL_SIZE: 40,
+    TOTAL_LEVELS: 20
 };
 
-window.addEventListener('keydown', (e) => {
-    if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
-    if (e.key === ' ' && (gameState === 'START' || gameState === 'DEAD' || gameState === 'VICTORY')) {
-        startGame();
-    }
-});
+const GAME_STATE = {
+    MENU: 0,
+    DROPPING: 1,
+    DEAD: 2,
+    VICTORY: 3,
+    COMPLETE: 4
+};
 
-window.addEventListener('keyup', (e) => {
-    if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
-});
+// ==========================================
+// SHADERS
+// ==========================================
+const RainbowVertexShader = `
+    varying vec2 vUv;
+    varying vec3 vPosition;
+    void main() {
+        vUv = uv;
+        vPosition = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
 
-class Particle {
-    constructor(x, y, color) {
-        this.x = x;
-        this.y = y;
-        this.vx = (Math.random() - 0.5) * 20;
-        this.vy = (Math.random() - 0.5) * 20;
-        this.life = 1.0;
-        this.decay = Math.random() * 0.02 + 0.02;
-        this.color = color;
-        this.size = Math.random() * 8 + 2;
+const RainbowFragmentShader = `
+    uniform float time;
+    varying vec2 vUv;
+    varying vec3 vPosition;
+    
+    vec3 hsv2rgb(vec3 c) {
+        vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
     }
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vy += GRAVITY * 0.5;
-        this.life -= this.decay;
-    }
-    draw(ctx, camY) {
-        ctx.globalAlpha = this.life;
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x - this.size/2, this.y - camY - this.size/2, this.size, this.size);
-        ctx.globalAlpha = 1.0;
-    }
-}
 
-class Player {
+    void main() {
+        float hue = fract(vPosition.y * 0.05 + time * 0.5);
+        vec3 color = hsv2rgb(vec3(hue, 1.0, 1.0));
+        
+        // Grid pattern
+        float grid = step(0.95, fract(vUv.x * 10.0)) + step(0.95, fract(vUv.y * 10.0));
+        color = mix(color, vec3(1.0), grid * 0.5);
+        
+        gl_FragColor = vec4(color, 1.0);
+    }
+`;
+
+const LavaVertexShader = `
+    varying vec2 vUv;
+    void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
+
+const LavaFragmentShader = `
+    uniform float time;
+    varying vec2 vUv;
+    
+    void main() {
+        vec2 uv = vUv * 5.0;
+        float noise = fract(sin(dot(uv ,vec2(12.9898,78.233))) * 43758.5453 + time);
+        vec3 color = mix(vec3(1.0, 0.2, 0.0), vec3(1.0, 0.8, 0.0), noise);
+        gl_FragColor = vec4(color, 1.0);
+    }
+`;
+
+// ==========================================
+// INPUT MANAGER
+// ==========================================
+class InputManager {
     constructor() {
-        this.width = 30;
-        this.height = 30;
-        this.reset();
-    }
-    reset() {
-        this.x = GAME_WIDTH / 2;
-        this.y = 100;
-        this.vx = 0;
-        this.vy = 0;
-        this.color = '#00ffcc';
-        this.isDead = false;
-    }
-    update() {
-        if (this.isDead) return;
-
-        if (keys.ArrowLeft || keys.a || keys.A) {
-            this.vx -= 1.5;
-        }
-        if (keys.ArrowRight || keys.d || keys.D) {
-            this.vx += 1.5;
-        }
-
-        this.vx *= PLAYER_FRICTION;
+        this.keys = {};
+        this.prevKeys = {};
         
-        if (this.vx > PLAYER_SPEED) this.vx = PLAYER_SPEED;
-        if (this.vx < -PLAYER_SPEED) this.vx = -PLAYER_SPEED;
-
-        this.vy += GRAVITY;
-        if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
-
-        this.x += this.vx;
-        this.y += this.vy;
-
-        if (this.x < this.width / 2) {
-            this.x = this.width / 2;
-            this.vx = 0;
-        }
-        if (this.x > GAME_WIDTH - this.width / 2) {
-            this.x = GAME_WIDTH - this.width / 2;
-            this.vx = 0;
-        }
-    }
-    draw(ctx, camY) {
-        if (this.isDead) return;
-        ctx.fillStyle = this.color;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
-        ctx.fillRect(this.x - this.width / 2, this.y - camY - this.height / 2, this.width, this.height);
-        ctx.shadowBlur = 0;
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.code] = true;
+        });
         
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(this.x - 8, this.y - camY - 5, 4, 4);
-        ctx.fillRect(this.x + 4, this.y - camY - 5, 4, 4);
-    }
-    die() {
-        this.isDead = true;
-        for (let i = 0; i < 50; i++) {
-            particles.push(new Particle(this.x, this.y, this.color));
-        }
-    }
-}
-
-const player = new Player();
-
-function generateLevelData(levelNum) {
-    const data = {
-        height: 3000 + (levelNum * 150),
-        obstacles: [],
-        safeZone: { x: 0, w: 200 }
-    };
-
-    data.safeZone.w = Math.max(80, 250 - (levelNum * 1.5));
-    data.safeZone.x = Math.random() * (GAME_WIDTH - data.safeZone.w);
-
-    const numObstacles = 10 + Math.floor(levelNum * 1.2);
-    const spacing = (data.height - 800) / numObstacles;
-
-    for (let i = 0; i < numObstacles; i++) {
-        const yPos = 500 + (i * spacing);
-        
-        let typeVal = Math.random();
-        let obsType = 'lava';
-        let color = '#ff3333';
-        
-        if (levelNum > 10 && typeVal > 0.7) {
-            obsType = 'beam';
-            color = '#ffff33';
-        } else if (levelNum > 30 && typeVal > 0.9) {
-            obsType = 'moving';
-            color = '#ff00ff';
-        }
-
-        let w = 100 + Math.random() * 300;
-        let x = Math.random() * (GAME_WIDTH - w);
-
-        if (levelNum === 100) {
-            w = GAME_WIDTH - data.safeZone.w - 20;
-            if (Math.random() > 0.5) {
-                x = 0;
-            } else {
-                x = GAME_WIDTH - w;
-            }
-        }
-
-        data.obstacles.push({
-            x: x,
-            y: yPos,
-            w: w,
-            h: 30,
-            type: obsType,
-            color: color,
-            speed: (Math.random() > 0.5 ? 1 : -1) * (1 + levelNum * 0.05)
+        window.addEventListener('keyup', (e) => {
+            this.keys[e.code] = false;
         });
     }
 
-    if (levelNum === 1) {
-        data.obstacles = [
-            { x: 0, y: 800, w: 300, h: 40, type: 'lava', color: '#ff3333' },
-            { x: 500, y: 1400, w: 300, h: 40, type: 'lava', color: '#ff3333' },
-            { x: 200, y: 2000, w: 400, h: 40, type: 'lava', color: '#ff3333' }
-        ];
-        data.height = 2800;
-        data.safeZone = { x: 300, w: 200 };
+    update() {
+        this.prevKeys = { ...this.keys };
     }
 
-    return data;
-}
+    isDown(code) {
+        return !!this.keys[code];
+    }
 
-function showMessage(text, duration = 2000) {
-    messageOverlay.innerText = text;
-    messageOverlay.classList.add('show-message');
-    if (duration > 0) {
-        setTimeout(() => {
-            messageOverlay.classList.remove('show-message');
-        }, duration);
+    isPressed(code) {
+        return !!this.keys[code] && !this.prevKeys[code];
     }
 }
 
-function updateUI() {
-    levelDisplay.innerText = `LEVEL: ${currentLevelIndex} / ${TOTAL_LEVELS}`;
-    deathDisplay.innerText = `DEATHS: ${deaths}`;
+// ==========================================
+// PHYSICS & COLLISION SYSTEM
+// ==========================================
+class AABB {
+    constructor(min, max) {
+        this.min = min.clone();
+        this.max = max.clone();
+    }
+
+    intersects(other) {
+        return (this.min.x <= other.max.x && this.max.x >= other.min.x) &&
+               (this.min.y <= other.max.y && this.max.y >= other.min.y) &&
+               (this.min.z <= other.max.z && this.max.z >= other.min.z);
+    }
+
+    copy(other) {
+        this.min.copy(other.min);
+        this.max.copy(other.max);
+    }
 }
 
-function loadLevel(index) {
-    currentLevelIndex = index;
-    currentLevelData = generateLevelData(index);
-    player.reset();
-    particles = [];
-    cameraY = 0;
-    gameState = 'PLAYING';
-    updateUI();
-    showMessage(`LEVEL ${index}`, 1500);
+// ==========================================
+// GAME ENTITIES
+// ==========================================
+class Player {
+    constructor(scene) {
+        this.scene = scene;
+        this.size = CONFIG.PLAYER_SIZE;
+        
+        // Create Mesh
+        const geometry = new THREE.BoxGeometry(this.size, this.size, this.size);
+        const material = new THREE.MeshStandardMaterial({ 
+            color: 0x00ffff,
+            roughness: 0.2,
+            metalness: 0.8
+        });
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.castShadow = true;
+        this.scene.add(this.mesh);
+        
+        this.velocity = new THREE.Vector3(0, 0, 0);
+        this.collider = new AABB(new THREE.Vector3(), new THREE.Vector3());
+        
+        this.reset();
+    }
+
+    reset() {
+        this.mesh.position.set(0, 0, 0);
+        this.velocity.set(0, 0, 0);
+        this.updateCollider();
+        this.mesh.visible = true;
+    }
+
+    updateCollider() {
+        const halfSize = this.size / 2;
+        this.collider.min.set(
+            this.mesh.position.x - halfSize,
+            this.mesh.position.y - halfSize,
+            this.mesh.position.z - halfSize
+        );
+        this.collider.max.set(
+            this.mesh.position.x + halfSize,
+            this.mesh.position.y + halfSize,
+            this.mesh.position.z + halfSize
+        );
+    }
+
+    update(dt, input) {
+        // Horizontal Movement
+        let moveX = 0;
+        let moveZ = 0;
+        
+        if (input.isDown('KeyW') || input.isDown('ArrowUp')) moveZ -= 1;
+        if (input.isDown('KeyS') || input.isDown('ArrowDown')) moveZ += 1;
+        if (input.isDown('KeyA') || input.isDown('ArrowLeft')) moveX -= 1;
+        if (input.isDown('KeyD') || input.isDown('ArrowRight')) moveX += 1;
+
+        if (moveX !== 0 || moveZ !== 0) {
+            const dir = new THREE.Vector2(moveX, moveZ).normalize();
+            this.velocity.x += dir.x * CONFIG.MOVE_SPEED * dt;
+            this.velocity.z += dir.y * CONFIG.MOVE_SPEED * dt;
+        }
+
+        // Apply friction
+        this.velocity.x *= CONFIG.FRICTION;
+        this.velocity.z *= CONFIG.FRICTION;
+
+        // Apply Gravity
+        this.velocity.y -= CONFIG.GRAVITY * dt;
+        if (this.velocity.y < -CONFIG.MAX_FALL_SPEED) {
+            this.velocity.y = -CONFIG.MAX_FALL_SPEED;
+        }
+
+        // Update Position
+        this.mesh.position.addScaledVector(this.velocity, dt);
+
+        // Tunnel Boundaries
+        const bound = (CONFIG.TUNNEL_SIZE / 2) - (this.size / 2);
+        if (this.mesh.position.x > bound) { this.mesh.position.x = bound; this.velocity.x = 0; }
+        if (this.mesh.position.x < -bound) { this.mesh.position.x = -bound; this.velocity.x = 0; }
+        if (this.mesh.position.z > bound) { this.mesh.position.z = bound; this.velocity.z = 0; }
+        if (this.mesh.position.z < -bound) { this.mesh.position.z = -bound; this.velocity.z = 0; }
+
+        // Rotation effect based on velocity
+        this.mesh.rotation.x = this.velocity.z * 0.05;
+        this.mesh.rotation.z = -this.velocity.x * 0.05;
+
+        this.updateCollider();
+    }
+
+    die(particleSystem) {
+        this.mesh.visible = false;
+        particleSystem.spawnExplosion(this.mesh.position, 0x00ffff, 50);
+    }
 }
 
-function startGame() {
-    deaths = 0;
-    loadLevel(1);
+class Obstacle {
+    constructor(scene, type, x, y, z, sx, sy, sz, color, metadata = {}) {
+        this.scene = scene;
+        this.type = type;
+        this.metadata = metadata;
+        
+        let material;
+        if (type === 'lava') {
+            material = new THREE.ShaderMaterial({
+                vertexShader: LavaVertexShader,
+                fragmentShader: LavaFragmentShader,
+                uniforms: { time: { value: 0 } }
+            });
+        } else if (type === 'glass') {
+            material = new THREE.MeshPhysicalMaterial({
+                color: color,
+                transmission: 0.9,
+                opacity: 1,
+                metalness: 0,
+                roughness: 0.1,
+                ior: 1.5,
+                thickness: 0.5
+            });
+        } else {
+            material = new THREE.MeshStandardMaterial({ color: color });
+        }
+
+        const geometry = new THREE.BoxGeometry(sx, sy, sz);
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.set(x, y, z);
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
+        
+        this.scene.add(this.mesh);
+
+        this.sx = sx;
+        this.sy = sy;
+        this.sz = sz;
+        this.collider = new AABB(new THREE.Vector3(), new THREE.Vector3());
+        this.updateCollider();
+        
+        this.timeOffset = Math.random() * Math.PI * 2;
+    }
+
+    updateCollider() {
+        const hx = this.sx / 2;
+        const hy = this.sy / 2;
+        const hz = this.sz / 2;
+        this.collider.min.set(this.mesh.position.x - hx, this.mesh.position.y - hy, this.mesh.position.z - hz);
+        this.collider.max.set(this.mesh.position.x + hx, this.mesh.position.y + hy, this.mesh.position.z + hz);
+    }
+
+    update(dt, time) {
+        if (this.type === 'lava' && this.mesh.material.uniforms) {
+            this.mesh.material.uniforms.time.value = time;
+        }
+        
+        if (this.metadata.moving) {
+            const speed = this.metadata.speed || 10;
+            const range = this.metadata.range || 15;
+            if (this.metadata.axis === 'x') {
+                this.mesh.position.x = Math.sin(time * speed + this.timeOffset) * range;
+            } else if (this.metadata.axis === 'z') {
+                this.mesh.position.z = Math.sin(time * speed + this.timeOffset) * range;
+            }
+            this.updateCollider();
+        }
+        
+        if (this.metadata.rotating) {
+            const speed = this.metadata.rspeed || 1;
+            this.mesh.rotation.y += speed * dt;
+            // AABB is simplified for rotation, intentionally brutal
+            this.updateCollider(); 
+        }
+    }
+
+    destroy() {
+        this.scene.remove(this.mesh);
+        this.mesh.geometry.dispose();
+        this.mesh.material.dispose();
+    }
 }
 
-function checkCollisions() {
-    const px = player.x;
-    const py = player.y;
-    const pw = player.width / 2;
-    const ph = player.height / 2;
+class SafeZone {
+    constructor(scene, x, y, z, size) {
+        this.scene = scene;
+        this.y = y;
+        this.size = size;
+        
+        const geometry = new THREE.BoxGeometry(size, 2, size);
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x00ff00,
+            emissive: 0x00aa00,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.set(x, y - 1, z);
+        this.scene.add(this.mesh);
+        
+        // Base plate under everything to catch out-of-bounds
+        const baseGeo = new THREE.BoxGeometry(CONFIG.TUNNEL_SIZE, 5, CONFIG.TUNNEL_SIZE);
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        this.baseMesh = new THREE.Mesh(baseGeo, baseMat);
+        this.baseMesh.position.set(0, y - 5, 0);
+        this.scene.add(this.baseMesh);
+        
+        this.safeCollider = new AABB(
+            new THREE.Vector3(x - size/2, y - 2, z - size/2),
+            new THREE.Vector3(x + size/2, y + 2, z + size/2)
+        );
+        
+        this.deathCollider = new AABB(
+            new THREE.Vector3(-CONFIG.TUNNEL_SIZE/2, y - 8, -CONFIG.TUNNEL_SIZE/2),
+            new THREE.Vector3(CONFIG.TUNNEL_SIZE/2, y - 3, CONFIG.TUNNEL_SIZE/2)
+        );
+    }
+    
+    destroy() {
+        this.scene.remove(this.mesh);
+        this.mesh.geometry.dispose();
+        this.mesh.material.dispose();
+        this.scene.remove(this.baseMesh);
+        this.baseMesh.geometry.dispose();
+        this.baseMesh.material.dispose();
+    }
+}
 
-    for (let obs of currentLevelData.obstacles) {
-        if (px + pw > obs.x && px - pw < obs.x + obs.w &&
-            py + ph > obs.y && py - ph < obs.y + obs.h) {
-            handleDeath();
+// ==========================================
+// PARTICLE SYSTEM
+// ==========================================
+class ParticleSystem {
+    constructor(scene) {
+        this.scene = scene;
+        this.particles = [];
+        const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        this.baseGeometry = geometry;
+    }
+
+    spawnExplosion(pos, color, count) {
+        const material = new THREE.MeshBasicMaterial({ color: color });
+        for(let i=0; i<count; i++) {
+            const mesh = new THREE.Mesh(this.baseGeometry, material);
+            mesh.position.copy(pos);
+            this.scene.add(mesh);
+            
+            this.particles.push({
+                mesh: mesh,
+                velocity: new THREE.Vector3(
+                    (Math.random() - 0.5) * 30,
+                    (Math.random() - 0.5) * 30,
+                    (Math.random() - 0.5) * 30
+                ),
+                life: 1.0,
+                decay: 0.02 + Math.random() * 0.03
+            });
+        }
+    }
+
+    update(dt) {
+        for(let i = this.particles.length - 1; i >= 0; i--) {
+            let p = this.particles[i];
+            p.velocity.y -= CONFIG.GRAVITY * 0.5 * dt;
+            p.mesh.position.addScaledVector(p.velocity, dt);
+            p.mesh.rotation.x += dt * 5;
+            p.mesh.rotation.y += dt * 5;
+            
+            p.life -= p.decay;
+            p.mesh.scale.setScalar(p.life);
+            
+            if (p.life <= 0) {
+                this.scene.remove(p.mesh);
+                this.particles.splice(i, 1);
+            }
+        }
+    }
+    
+    clear() {
+        for(let p of this.particles) {
+            this.scene.remove(p.mesh);
+        }
+        this.particles = [];
+    }
+}
+
+// ==========================================
+// LEVEL GENERATION
+// ==========================================
+class LevelManager {
+    constructor(scene) {
+        this.scene = scene;
+        this.obstacles = [];
+        this.safeZone = null;
+        this.tunnel = null;
+        this.tunnelMaterial = null;
+    }
+
+    clearLevel() {
+        for(let o of this.obstacles) o.destroy();
+        this.obstacles = [];
+        if (this.safeZone) this.safeZone.destroy();
+        if (this.tunnel) {
+            this.scene.remove(this.tunnel);
+            this.tunnel.geometry.dispose();
+            this.tunnelMaterial.dispose();
+        }
+    }
+
+    loadLevel(levelIndex) {
+        this.clearLevel();
+        
+        // Construct Tunnel based on theme
+        const depth = CONFIG.LEVEL_DEPTH + (levelIndex * 100);
+        const geo = new THREE.BoxGeometry(CONFIG.TUNNEL_SIZE, depth, CONFIG.TUNNEL_SIZE);
+        
+        // Reverse faces to see inside
+        for(let i = 0; i < geo.faces?.length; i++) {
+            // Deprecated in r128, using side: THREE.BackSide instead
+        }
+        
+        if (levelIndex % 3 === 0) {
+            // Rainbow Tunnel
+            this.tunnelMaterial = new THREE.ShaderMaterial({
+                vertexShader: RainbowVertexShader,
+                fragmentShader: RainbowFragmentShader,
+                uniforms: { time: { value: 0 } },
+                side: THREE.BackSide
+            });
+        } else if (levelIndex % 3 === 1) {
+            // Dark Tech Tunnel
+            this.tunnelMaterial = new THREE.MeshStandardMaterial({
+                color: 0x111122,
+                roughness: 0.8,
+                metalness: 0.5,
+                side: THREE.BackSide,
+                wireframe: true
+            });
+        } else {
+            // Solid Color blocks
+            this.tunnelMaterial = new THREE.MeshStandardMaterial({
+                color: 0x333333,
+                side: THREE.BackSide
+            });
+        }
+
+        this.tunnel = new THREE.Mesh(geo, this.tunnelMaterial);
+        this.tunnel.position.y = -depth / 2 + 10;
+        this.scene.add(this.tunnel);
+
+        // Generate Safe Zone at bottom
+        let szSize = 10 - (levelIndex * 0.3);
+        if (szSize < 3) szSize = 3;
+        
+        let szX = (Math.random() - 0.5) * (CONFIG.TUNNEL_SIZE - szSize);
+        let szZ = (Math.random() - 0.5) * (CONFIG.TUNNEL_SIZE - szSize);
+        
+        // Level 20 is exactly in center but tiny
+        if (levelIndex === 20) { szX = 0; szZ = 0; szSize = 2.5; }
+        
+        this.safeZone = new SafeZone(this.scene, szX, -depth + 5, szZ, szSize);
+
+        // Generate Obstacles programmatically
+        this.generateObstacles(levelIndex, depth);
+    }
+
+    generateObstacles(level, depth) {
+        const numSlices = 10 + level * 2;
+        const spacing = (depth - 50) / numSlices;
+        const ts = CONFIG.TUNNEL_SIZE;
+
+        for(let i=0; i<numSlices; i++) {
+            let y = -20 - (i * spacing);
+            
+            // Determine slice pattern based on level
+            let pattern = Math.floor(Math.random() * 5);
+            if (level < 3) pattern = 0; // Simple blocks
+            if (level === 20) pattern = 4; // Bullet hell
+            
+            switch(pattern) {
+                case 0: // Simple random blocks
+                    for(let j=0; j<3; j++) {
+                        let w = 5 + Math.random() * 15;
+                        let d = 5 + Math.random() * 15;
+                        let h = 2 + Math.random() * 5;
+                        let x = (Math.random() - 0.5) * ts;
+                        let z = (Math.random() - 0.5) * ts;
+                        this.addObstacle('solid', x, y, z, w, h, d, 0xff5555);
+                    }
+                    break;
+                case 1: // Beams
+                    this.addObstacle('solid', 0, y, 0, ts, 2, 4, 0xaaaaaa);
+                    this.addObstacle('solid', 0, y - 20, 0, 4, 2, ts, 0xaaaaaa);
+                    break;
+                case 2: // Moving Platforms
+                    this.addObstacle('solid', 0, y, 0, 10, 2, 10, 0x0055ff, { moving: true, axis: 'x', speed: 2 + level*0.1, range: ts/2 - 5 });
+                    break;
+                case 3: // Lava Grid
+                    for(let r=0; r<4; r++) {
+                        for(let c=0; c<4; c++) {
+                            if ((r+c)%2 === 0) {
+                                let x = -ts/2 + (ts/4)*c + ts/8;
+                                let z = -ts/2 + (ts/4)*r + ts/8;
+                                this.addObstacle('lava', x, y, z, ts/4, 2, ts/4, 0xff0000);
+                            }
+                        }
+                    }
+                    break;
+                case 4: // Rotating Cross
+                    this.addObstacle('solid', 0, y, 0, ts-5, 2, 2, 0xff00ff, { rotating: true, rspeed: 1 + level*0.05 });
+                    this.addObstacle('solid', 0, y, 0, 2, 2, ts-5, 0xff00ff, { rotating: true, rspeed: 1 + level*0.05 });
+                    break;
+            }
+        }
+        
+        // Procedurally add glass panes just to confuse
+        if (level > 10) {
+            for(let i=0; i<5; i++) {
+                let y = -Math.random() * depth;
+                this.addObstacle('glass', 0, y, 0, ts, 0.5, ts/2, 0xffffff);
+            }
+        }
+    }
+
+    addObstacle(type, x, y, z, w, h, d, color, metadata={}) {
+        this.obstacles.push(new Obstacle(this.scene, type, x, y, z, w, h, d, color, metadata));
+    }
+
+    update(dt, time) {
+        if (this.tunnelMaterial && this.tunnelMaterial.uniforms) {
+            this.tunnelMaterial.uniforms.time.value = time;
+        }
+        for(let obs of this.obstacles) {
+            obs.update(dt, time);
+        }
+    }
+}
+
+// ==========================================
+// MAIN GAME ENGINE
+// ==========================================
+class GameEngine {
+    constructor() {
+        this.container = document.getElementById('game-container');
+        this.uiMessage = document.getElementById('center-message');
+        this.uiLevel = document.getElementById('level-display');
+        this.uiFails = document.getElementById('fails-display');
+        
+        // THREE Setup
+        this.scene = new THREE.Scene();
+        this.scene.fog = new THREE.FogExp2(0x000000, 0.005);
+        
+        this.camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 2000);
+        
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.container.appendChild(this.renderer.domElement);
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        this.scene.add(ambientLight);
+        
+        this.dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        this.dirLight.position.set(10, 20, 10);
+        this.dirLight.castShadow = true;
+        this.scene.add(this.dirLight);
+
+        this.playerLight = new THREE.PointLight(0x00ffff, 1, 50);
+        this.scene.add(this.playerLight);
+
+        // Systems
+        this.input = new InputManager();
+        this.player = new Player(this.scene);
+        this.particles = new ParticleSystem(this.scene);
+        this.levelManager = new LevelManager(this.scene);
+        
+        // State
+        this.state = GAME_STATE.MENU;
+        this.currentLevel = 1;
+        this.fails = 0;
+        
+        this.clock = new THREE.Clock();
+        this.time = 0;
+
+        window.addEventListener('resize', this.onWindowResize.bind(this), false);
+        
+        this.initLevel();
+        this.showMessage("DUMBODROPPER 3D\nPRESS SPACE TO DROP", true);
+        
+        this.animate();
+    }
+
+    onWindowResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    showMessage(msg, persistent=false) {
+        this.uiMessage.innerText = msg;
+        this.uiMessage.classList.add('visible');
+        if (!persistent) {
+            setTimeout(() => {
+                if (this.uiMessage.innerText === msg) {
+                    this.uiMessage.classList.remove('visible');
+                }
+            }, 2000);
+        }
+    }
+
+    hideMessage() {
+        this.uiMessage.classList.remove('visible');
+    }
+
+    updateUI() {
+        this.uiLevel.innerText = `LEVEL: ${this.currentLevel} / ${CONFIG.TOTAL_LEVELS}`;
+        this.uiFails.innerText = `FAILS: ${this.fails}`;
+    }
+
+    initLevel() {
+        this.levelManager.loadLevel(this.currentLevel);
+        this.player.reset();
+        this.particles.clear();
+        this.updateCamera(true);
+        this.updateUI();
+    }
+
+    updateCamera(instant = false) {
+        const targetPos = this.player.mesh.position.clone().add(CONFIG.CAMERA_OFFSET);
+        if (instant) {
+            this.camera.position.copy(targetPos);
+        } else {
+            this.camera.position.lerp(targetPos, 0.2);
+        }
+        
+        // Look slightly down ahead of player
+        const lookTarget = this.player.mesh.position.clone();
+        lookTarget.y -= 10;
+        this.camera.lookAt(lookTarget);
+
+        this.playerLight.position.copy(this.player.mesh.position);
+    }
+
+    checkCollisions() {
+        const pCol = this.player.collider;
+
+        // Check Obstacles
+        for(let obs of this.levelManager.obstacles) {
+            if (pCol.intersects(obs.collider)) {
+                this.handleDeath();
+                return;
+            }
+        }
+
+        // Check Safe Zone
+        const sz = this.levelManager.safeZone;
+        if (pCol.intersects(sz.deathCollider)) {
+            this.handleDeath();
             return;
         }
+
+        if (pCol.intersects(sz.safeCollider)) {
+            this.handleVictory();
+        }
     }
 
-    if (py > currentLevelData.height - 100) {
-        if (px > currentLevelData.safeZone.x && px < currentLevelData.safeZone.x + currentLevelData.safeZone.w) {
-            if (gameState === 'PLAYING') {
-                handleVictory();
-            }
+    handleDeath() {
+        this.state = GAME_STATE.DEAD;
+        this.fails++;
+        this.updateUI();
+        this.player.die(this.particles);
+        this.showMessage("SPLAT!\nPRESS SPACE TO RETRY", true);
+    }
+
+    handleVictory() {
+        this.state = GAME_STATE.VICTORY;
+        this.player.velocity.set(0,0,0);
+        
+        if (this.currentLevel >= CONFIG.TOTAL_LEVELS) {
+            this.state = GAME_STATE.COMPLETE;
+            this.showMessage("YOU SURVIVED!\nGAME COMPLETE", true);
         } else {
-            handleDeath();
+            this.showMessage("SAFE!\nPRESS SPACE FOR NEXT LEVEL", true);
         }
     }
-}
 
-function handleDeath() {
-    gameState = 'DEAD';
-    player.die();
-    deaths++;
-    updateUI();
-    showMessage("SPLAT! PRESS SPACE", 0);
-}
-
-function handleVictory() {
-    gameState = 'VICTORY';
-    player.vy = 0;
-    player.vx = 0;
-    
-    if (currentLevelIndex < TOTAL_LEVELS) {
-        showMessage("CLEAR!", 1000);
-        setTimeout(() => {
-            loadLevel(currentLevelIndex + 1);
-        }, 1500);
-    } else {
-        showMessage("YOU BEAT DUMBODROPPER!", 0);
-    }
-}
-
-function updateCamera() {
-    let targetCamY = player.y - GAME_HEIGHT * 0.3;
-    if (targetCamY < 0) targetCamY = 0;
-    if (targetCamY > currentLevelData.height - GAME_HEIGHT) targetCamY = currentLevelData.height - GAME_HEIGHT;
-    
-    cameraY += (targetCamY - cameraY) * 0.1;
-}
-
-function updateObstacles() {
-    for (let obs of currentLevelData.obstacles) {
-        if (obs.type === 'moving') {
-            obs.x += obs.speed;
-            if (obs.x <= 0 || obs.x + obs.w >= GAME_WIDTH) {
-                obs.speed *= -1;
-            }
-        }
-    }
-}
-
-function drawBackground() {
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    ctx.strokeStyle = '#1a1a1a';
-    ctx.lineWidth = 2;
-    const gridSize = 100;
-    const offsetY = cameraY % gridSize;
-    
-    for (let x = 0; x <= GAME_WIDTH; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, GAME_HEIGHT);
-        ctx.stroke();
-    }
-    for (let y = 0; y <= GAME_HEIGHT; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y - offsetY);
-        ctx.lineTo(GAME_WIDTH, y - offsetY);
-        ctx.stroke();
-    }
-}
-
-function drawLevel() {
-    for (let obs of currentLevelData.obstacles) {
-        if (obs.y - cameraY > GAME_HEIGHT || obs.y + obs.h - cameraY < 0) continue;
+    animate() {
+        requestAnimationFrame(this.animate.bind(this));
         
-        ctx.fillStyle = obs.color;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = obs.color;
-        ctx.fillRect(obs.x, obs.y - cameraY, obs.w, obs.h);
-        
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
-        ctx.fillRect(obs.x, obs.y - cameraY, obs.w, 5);
-    }
-    ctx.shadowBlur = 0;
+        const dt = Math.min(this.clock.getDelta(), 0.1); // Cap delta to prevent tunneling on lag
+        this.time += dt;
 
-    const botY = currentLevelData.height - cameraY;
-    
-    ctx.fillStyle = '#111111';
-    ctx.fillRect(0, botY, GAME_WIDTH, GAME_HEIGHT);
-    
-    ctx.fillStyle = '#ff3333';
-    ctx.fillRect(0, botY, currentLevelData.safeZone.x, GAME_HEIGHT);
-    ctx.fillRect(currentLevelData.safeZone.x + currentLevelData.safeZone.w, botY, GAME_WIDTH, GAME_HEIGHT);
-    
-    ctx.fillStyle = '#00ff00';
-    ctx.fillRect(currentLevelData.safeZone.x, botY, currentLevelData.safeZone.w, GAME_HEIGHT);
-    
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
-    ctx.fillRect(currentLevelData.safeZone.x, botY - 50, currentLevelData.safeZone.w, 50);
-}
+        this.input.update();
 
-function gameLoop() {
-    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        // State Machine
+        switch(this.state) {
+            case GAME_STATE.MENU:
+                if (this.input.isPressed('Space')) {
+                    this.state = GAME_STATE.DROPPING;
+                    this.hideMessage();
+                }
+                break;
+                
+            case GAME_STATE.DEAD:
+                this.particles.update(dt);
+                if (this.input.isPressed('Space')) {
+                    this.initLevel();
+                    this.state = GAME_STATE.DROPPING;
+                    this.hideMessage();
+                }
+                break;
 
-    if (gameState === 'START') {
-        drawBackground();
-        requestAnimationFrame(gameLoop);
-        return;
-    }
+            case GAME_STATE.VICTORY:
+                if (this.input.isPressed('Space')) {
+                    this.currentLevel++;
+                    this.initLevel();
+                    this.state = GAME_STATE.DROPPING;
+                    this.hideMessage();
+                }
+                break;
 
-    if (gameState === 'PLAYING') {
-        player.update();
-        updateObstacles();
-        checkCollisions();
-        updateCamera();
-    }
-
-    drawBackground();
-    drawLevel();
-    player.draw(ctx, cameraY);
-
-    for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update();
-        particles[i].draw(ctx, cameraY);
-        if (particles[i].life <= 0) {
-            particles.splice(i, 1);
+            case GAME_STATE.DROPPING:
+                this.player.update(dt, this.input);
+                this.levelManager.update(dt, this.time);
+                this.checkCollisions();
+                break;
         }
+
+        if (this.state !== GAME_STATE.MENU) {
+            this.updateCamera();
+        } else {
+            // Idle camera pan
+            this.camera.position.x = Math.sin(this.time) * 10;
+            this.camera.position.z = Math.cos(this.time) * 10;
+            this.camera.lookAt(0, -50, 0);
+        }
+
+        this.renderer.render(this.scene, this.camera);
     }
-
-    const wallsGradient = ctx.createLinearGradient(0, 0, 20, 0);
-    wallsGradient.addColorStop(0, 'rgba(0,0,0,0.8)');
-    wallsGradient.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = wallsGradient;
-    ctx.fillRect(0, 0, 20, GAME_HEIGHT);
-
-    const wallsGradientR = ctx.createLinearGradient(GAME_WIDTH, 0, GAME_WIDTH - 20, 0);
-    wallsGradientR.addColorStop(0, 'rgba(0,0,0,0.8)');
-    wallsGradientR.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = wallsGradientR;
-    ctx.fillRect(GAME_WIDTH - 20, 0, 20, GAME_HEIGHT);
-
-    requestAnimationFrame(gameLoop);
 }
 
-showMessage("PRESS SPACE TO DROP", 0);
-gameLoop();
-
+// Bootstrap Game
+window.onload = () => {
+    const game = new GameEngine();
+};
 </script>
 </body>
 </html>

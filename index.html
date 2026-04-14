@@ -258,14 +258,6 @@
     </div>
 
 <script>
-/**
-
- */
-
-// ============================================================================
-// 1. GLOBAL CONFIGURATIONS & CONSTANTS
-// ============================================================================
-
 const ENGINE_CONFIG = {
     TUNNEL_WIDTH: 80,
     TUNNEL_DEPTH_BASE: 1000,
@@ -279,7 +271,6 @@ const ENGINE_CONFIG = {
     FOV: 95,
     TOTAL_LEVELS: 100,
     COLORS: {
-        // Automatically generates a perfectly smooth 80-color spectrum using HSL math!
         RAINBOW: Array.from({length: 100}, (_, i) => new THREE.Color().setHSL(i / 100, 1.0, 0.5).getHex()),
         LAVA: 0xff3300,
         SAFE: 0x00ffaa,
@@ -290,7 +281,7 @@ const ENGINE_CONFIG = {
 
 const GAME_STATES = {
     BOOT: "BOOT",
-    LOGIN: "LOGIN", // Add this line
+    LOGIN: "LOGIN",
     MENU: "MENU",
     PLAYING: "PLAYING",
     DYING: "DYING", 
@@ -298,35 +289,22 @@ const GAME_STATES = {
     VICTORY: "VICTORY",
     GAME_OVER: "GAME_OVER"
 };
-// ============================================================================
-// 2. MATH & PHYSICS UTILITIES
-// ============================================================================
 
 class Vector3D {
     constructor(x = 0, y = 0, z = 0) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+        this.x = x; this.y = y; this.z = z;
     }
     set(x, y, z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+        this.x = x; this.y = y; this.z = z;
     }
     add(v) {
-        this.x += v.x;
-        this.y += v.y;
-        this.z += v.z;
+        this.x += v.x; this.y += v.y; this.z += v.z;
     }
     sub(v) {
-        this.x -= v.x;
-        this.y -= v.y;
-        this.z -= v.z;
+        this.x -= v.x; this.y -= v.y; this.z -= v.z;
     }
     multiplyScalar(s) {
-        this.x *= s;
-        this.y *= s;
-        this.z *= s;
+        this.x *= s; this.y *= s; this.z *= s;
     }
     clone() {
         return new Vector3D(this.x, this.y, this.z);
@@ -353,10 +331,6 @@ class AABB_Collider {
     }
 }
 
-// ============================================================================
-// 3. AUDIO SYNTHESIZER ENGINE (No External Files)
-// ============================================================================
-
 class SynthesisEngine {
     constructor() {
         this.audioCtx = null;
@@ -376,37 +350,28 @@ class SynthesisEngine {
 
     playOscillator(freq, type, duration, vol = 1.0, slideFreq = null) {
         if (!this.isReady) return;
-        
         const osc = this.audioCtx.createOscillator();
         const gainNode = this.audioCtx.createGain();
-        
         osc.type = type;
         osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
-        
         if (slideFreq !== null) {
             osc.frequency.exponentialRampToValueAtTime(slideFreq, this.audioCtx.currentTime + duration);
         }
-        
         gainNode.gain.setValueAtTime(vol, this.audioCtx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + duration);
-        
         osc.connect(gainNode);
         gainNode.connect(this.masterGain);
-        
         osc.start();
         osc.stop(this.audioCtx.currentTime + duration);
     }
 
     sfxDrop() {
         this.playOscillator(300, 'square', 0.4, 0.4, 150);
-        setTimeout(() => {
-            this.playOscillator(150, 'sawtooth', 0.6, 0.4, 50);
-        }, 100);
+        setTimeout(() => { this.playOscillator(150, 'sawtooth', 0.6, 0.4, 50); }, 100);
     }
 
     sfxHit() {
         this.playOscillator(120, 'sawtooth', 0.2, 0.8, 10);
-        
         if (!this.isReady) return;
         const bufferSize = this.audioCtx.sampleRate * 0.1; 
         const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
@@ -419,7 +384,6 @@ class SynthesisEngine {
     sfxEpicBoom() {
         this.playOscillator(80, 'sawtooth', 1.2, 1.5, 5);
         this.playOscillator(40, 'square', 1.0, 1.0, 1);
-        
         if (!this.isReady) return;
         const bufferSize = this.audioCtx.sampleRate * 1.5; 
         const buffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
@@ -436,10 +400,6 @@ class SynthesisEngine {
         setTimeout(() => this.playOscillator(1046.50, 'sine', 0.6, 0.5), 450); 
     }
 }
-
-// ============================================================================
-// 4. INPUT MANAGEMENT
-// ============================================================================
 
 class VirtualJoystick {
     constructor() {
@@ -483,10 +443,6 @@ class InputManager {
     consumeAction() { if (this.actionTriggered) { this.actionTriggered = false; return true; } return false; }
 }
 
-// ============================================================================
-// 5. SHADERS (CUSTOM GLSL FOR LAVA)
-// ============================================================================
-
 const ShaderLibrary = {
     lavaVertex: `
         varying vec2 vUv;
@@ -508,40 +464,27 @@ const ShaderLibrary = {
 
         void main() {
             vec2 uv = vUv * 4.0;
-            
             uv.x += time * 0.5;
             uv.y += sin(time * 0.2);
-            
             float noise = random(floor(uv));
             float smoothNoise = smoothstep(0.2, 0.8, fract(uv.x * uv.y + time));
-            
             vec3 color1 = vec3(1.0, 0.1, 0.0); 
             vec3 color2 = vec3(1.0, 0.8, 0.0); 
-            
             vec3 finalColor = mix(color1, color2, smoothNoise * noise);
-            
             gl_FragColor = vec4(finalColor, 1.0);
         }
     `
 };
-
-// ============================================================================
-// 6. GAME ENTITIES & COMPONENTS
-// ============================================================================
 
 class RobloxCharacter {
     constructor(scene) {
         this.scene = scene;
         this.group = new THREE.Group();
         this.size = ENGINE_CONFIG.PLAYER_SIZE;
-        
         this.buildCharacterMesh();
-        
         this.collider = new AABB_Collider(0, 0, 0, this.size * 1.5, this.size * 2.5, this.size * 1.0);
         this.velocity = new THREE.Vector3(0, 0, 0);
-        
         this.isDead = false;
-        
         this.scene.add(this.group);
     }
 
@@ -609,25 +552,19 @@ class RobloxCharacter {
 
     update(dt, inputAxis, tunnelBoundary) {
         if (this.isDead) return;
-
         this.velocity.x += inputAxis.x * ENGINE_CONFIG.PLAYER_SPEED * dt;
         this.velocity.z += inputAxis.z * ENGINE_CONFIG.PLAYER_SPEED * dt;
-        
         this.velocity.x *= ENGINE_CONFIG.FRICTION;
         this.velocity.z *= ENGINE_CONFIG.FRICTION;
-        
         this.velocity.y -= ENGINE_CONFIG.BASE_GRAVITY * dt;
-        
         if (this.velocity.y < -ENGINE_CONFIG.MAX_TERMINAL_VELOCITY) {
             this.velocity.y = -ENGINE_CONFIG.MAX_TERMINAL_VELOCITY;
         }
-
         this.group.position.x += this.velocity.x * dt;
         this.group.position.y += this.velocity.y * dt;
         this.group.position.z += this.velocity.z * dt;
 
         const boundaryLimit = (tunnelBoundary / 2) - (this.size * 1.0);
-        
         if (this.group.position.x > boundaryLimit) {
             this.group.position.x = boundaryLimit;
             this.velocity.x = 0;
@@ -635,7 +572,6 @@ class RobloxCharacter {
             this.group.position.x = -boundaryLimit;
             this.velocity.x = 0;
         }
-        
         if (this.group.position.z > boundaryLimit) {
             this.group.position.z = boundaryLimit;
             this.velocity.z = 0;
@@ -649,22 +585,13 @@ class RobloxCharacter {
         this.armR.rotation.x = Math.PI + Math.cos(timeOffset) * 0.3;
         this.legL.rotation.x = Math.sin(timeOffset * 0.8) * 0.2;
         this.legR.rotation.x = Math.cos(timeOffset * 0.8) * 0.2;
-        
         this.group.rotation.y = (this.velocity.x * 0.005);
         this.group.rotation.z = -(this.velocity.z * 0.005);
-
         this.updateCollider();
     }
 
     updateCollider() {
-        this.collider.update(
-            this.group.position.x,
-            this.group.position.y,
-            this.group.position.z,
-            this.size * 1.5,
-            this.size * 2.5,
-            this.size * 1.0
-        );
+        this.collider.update(this.group.position.x, this.group.position.y, this.group.position.z, this.size * 1.5, this.size * 2.5, this.size * 1.0);
     }
 
     kill() {
@@ -673,18 +600,12 @@ class RobloxCharacter {
     }
 }
 
-// ============================================================================
-// 7. LEVEL OBSTACLES & TUNNEL ARCHITECTURE
-// ============================================================================
-
 class ObstacleObject {
     constructor(scene, definition) {
         this.scene = scene;
         this.def = definition;
-        
         const geometry = new THREE.BoxGeometry(this.def.w, this.def.h, this.def.d);
         let material;
-        
         if (this.def.type === 'lava') {
             material = new THREE.ShaderMaterial({
                 vertexShader: ShaderLibrary.lavaVertex,
@@ -694,37 +615,22 @@ class ObstacleObject {
         } else if (this.def.type === 'glass') {
             material = new THREE.MeshPhysicalMaterial({
                 color: ENGINE_CONFIG.COLORS.GLASS,
-                transmission: 0.9,
-                opacity: 1,
-                transparent: true,
-                roughness: 0.1,
-                ior: 1.5
+                transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1, ior: 1.5
             });
         } else {
             material = new THREE.MeshStandardMaterial({
-                color: this.def.color || 0xffffff,
-                roughness: 0.3,
-                metalness: 0.2
+                color: this.def.color || 0xffffff, roughness: 0.3, metalness: 0.2
             });
         }
-
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.position.set(this.def.x, this.def.y, this.def.z);
-        
         if (this.def.rotX) this.mesh.rotation.x = this.def.rotX;
         if (this.def.rotY) this.mesh.rotation.y = this.def.rotY;
         if (this.def.rotZ) this.mesh.rotation.z = this.def.rotZ;
-
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
-        
         this.scene.add(this.mesh);
-        
-        this.collider = new AABB_Collider(
-            this.def.x, this.def.y, this.def.z, 
-            this.def.w, this.def.h, this.def.d
-        );
-        
+        this.collider = new AABB_Collider(this.def.x, this.def.y, this.def.z, this.def.w, this.def.h, this.def.d);
         this.timeOffset = Math.random() * 1000;
         this.initialX = this.def.x;
         this.initialZ = this.def.z;
@@ -734,26 +640,17 @@ class ObstacleObject {
         if (this.def.type === 'lava' && this.mesh.material.uniforms) {
             this.mesh.material.uniforms.time.value = globalTime;
         }
-
         if (this.def.moveAxis) {
             const speed = this.def.moveSpeed || 10;
             const range = this.def.moveRange || 20;
             const displacement = Math.sin(globalTime * speed + this.timeOffset) * range;
-            
             if (this.def.moveAxis === 'x') {
                 this.mesh.position.x = this.initialX + displacement;
             } else if (this.def.moveAxis === 'z') {
                 this.mesh.position.z = this.initialZ + displacement;
             }
-            
-            this.collider.update(
-                this.mesh.position.x, 
-                this.mesh.position.y, 
-                this.mesh.position.z, 
-                this.def.w, this.def.h, this.def.d
-            );
+            this.collider.update(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z, this.def.w, this.def.h, this.def.d);
         }
-
         if (this.def.rotSpeedY) {
             this.mesh.rotation.y += this.def.rotSpeedY * dt;
         }
@@ -772,59 +669,40 @@ class RainbowTunnel {
         this.depth = depth;
         this.width = width;
         this.segments = [];
-        
         this.buildTunnel();
     }
-
     buildTunnel() {
         const segmentHeight = 20;
         const numSegments = Math.floor(this.depth / segmentHeight);
         const thickness = 5;
-        
         for (let i = 0; i < numSegments; i++) {
             const yPos = -(i * segmentHeight);
-            
             const colorIndex = i % ENGINE_CONFIG.COLORS.RAINBOW.length;
             const ringColor = ENGINE_CONFIG.COLORS.RAINBOW[colorIndex];
-            
-            const material = new THREE.MeshStandardMaterial({
-                color: ringColor,
-                roughness: 0.8,
-                metalness: 0.1
-            });
-
+            const material = new THREE.MeshStandardMaterial({ color: ringColor, roughness: 0.8, metalness: 0.1 });
             const w = this.width;
             
             const geoN = new THREE.BoxGeometry(w + thickness*2, segmentHeight, thickness);
             const meshN = new THREE.Mesh(geoN, material);
             meshN.position.set(0, yPos, -w/2 - thickness/2);
-            meshN.receiveShadow = true;
-            this.scene.add(meshN);
-            this.segments.push(meshN);
+            meshN.receiveShadow = true; this.scene.add(meshN); this.segments.push(meshN);
             
             const geoS = new THREE.BoxGeometry(w + thickness*2, segmentHeight, thickness);
             const meshS = new THREE.Mesh(geoS, material);
             meshS.position.set(0, yPos, w/2 + thickness/2);
-            meshS.receiveShadow = true;
-            this.scene.add(meshS);
-            this.segments.push(meshS);
+            meshS.receiveShadow = true; this.scene.add(meshS); this.segments.push(meshS);
             
             const geoE = new THREE.BoxGeometry(thickness, segmentHeight, w);
             const meshE = new THREE.Mesh(geoE, material);
             meshE.position.set(w/2 + thickness/2, yPos, 0);
-            meshE.receiveShadow = true;
-            this.scene.add(meshE);
-            this.segments.push(meshE);
+            meshE.receiveShadow = true; this.scene.add(meshE); this.segments.push(meshE);
             
             const geoW = new THREE.BoxGeometry(thickness, segmentHeight, w);
             const meshW = new THREE.Mesh(geoW, material);
             meshW.position.set(-w/2 - thickness/2, yPos, 0);
-            meshW.receiveShadow = true;
-            this.scene.add(meshW);
-            this.segments.push(meshW);
+            meshW.receiveShadow = true; this.scene.add(meshW); this.segments.push(meshW);
         }
     }
-
     destroy() {
         for (let i = 0; i < this.segments.length; i++) {
             this.scene.remove(this.segments[i]);
@@ -842,13 +720,7 @@ class SafeZoneTarget {
         this.width = width;
         
         const safeGeo = new THREE.BoxGeometry(width, 10, width);
-        const safeMat = new THREE.MeshStandardMaterial({
-            color: ENGINE_CONFIG.COLORS.SAFE,
-            transparent: true,
-            opacity: 0.7,
-            roughness: 0.1,
-            metalness: 0.1
-        });
+        const safeMat = new THREE.MeshStandardMaterial({ color: ENGINE_CONFIG.COLORS.SAFE, transparent: true, opacity: 0.7, roughness: 0.1, metalness: 0.1 });
         this.safeMesh = new THREE.Mesh(safeGeo, safeMat);
         this.safeMesh.position.set(0, yPosition, 0);
         this.scene.add(this.safeMesh);
@@ -863,20 +735,12 @@ class SafeZoneTarget {
         this.colliderSafe = new AABB_Collider(0, yPosition, 0, width, 10, width);
         this.colliderDeath = new AABB_Collider(0, yPosition - 15, 0, floorWidth, 20, floorWidth);
     }
-
     destroy() {
-        this.scene.remove(this.safeMesh);
-        this.scene.remove(this.floorMesh);
-        this.safeMesh.geometry.dispose();
-        this.safeMesh.material.dispose();
-        this.floorMesh.geometry.dispose();
-        this.floorMesh.material.dispose();
+        this.scene.remove(this.safeMesh); this.scene.remove(this.floorMesh);
+        this.safeMesh.geometry.dispose(); this.safeMesh.material.dispose();
+        this.floorMesh.geometry.dispose(); this.floorMesh.material.dispose();
     }
 }
-
-// ============================================================================
-// 8. VISUAL EFFECTS (PARTICLES)
-// ============================================================================
 
 class ParticleSystem {
     constructor(scene) {
@@ -885,176 +749,235 @@ class ParticleSystem {
         this.baseGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5);
         this.baseMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
     }
-
     spawnSplat(position, count, colorHex) {
         const explosionMat = new THREE.MeshBasicMaterial({ color: colorHex });
-        
         for (let i = 0; i < count; i++) {
             const pMesh = new THREE.Mesh(this.baseGeo, explosionMat);
-            
-            pMesh.position.set(
-                position.x + (Math.random() - 0.5) * 5,
-                position.y + (Math.random() - 0.5) * 5,
-                position.z + (Math.random() - 0.5) * 5
-            );
-            
+            pMesh.position.set(position.x + (Math.random() - 0.5) * 5, position.y + (Math.random() - 0.5) * 5, position.z + (Math.random() - 0.5) * 5);
             this.scene.add(pMesh);
-            
             this.particles.push({
                 mesh: pMesh,
-                velocity: new THREE.Vector3(
-                    (Math.random() - 0.5) * 60,
-                    (Math.random() * 50) + 10, 
-                    (Math.random() - 0.5) * 60
-                ),
-                life: 1.0,
-                decay: (Math.random() * 0.03) + 0.01
+                velocity: new THREE.Vector3((Math.random() - 0.5) * 60, (Math.random() * 50) + 10, (Math.random() - 0.5) * 60),
+                life: 1.0, decay: (Math.random() * 0.03) + 0.01
             });
         }
     }
-
     update(dt) {
         for (let i = this.particles.length - 1; i >= 0; i--) {
             let p = this.particles[i];
-            
             p.velocity.y -= ENGINE_CONFIG.BASE_GRAVITY * dt;
-            
-            p.mesh.position.x += p.velocity.x * dt;
-            p.mesh.position.y += p.velocity.y * dt;
-            p.mesh.position.z += p.velocity.z * dt;
-            
-            p.mesh.rotation.x += dt * 10;
-            p.mesh.rotation.y += dt * 10;
-            
+            p.mesh.position.x += p.velocity.x * dt; p.mesh.position.y += p.velocity.y * dt; p.mesh.position.z += p.velocity.z * dt;
+            p.mesh.rotation.x += dt * 10; p.mesh.rotation.y += dt * 10;
             p.life -= p.decay;
             const scale = Math.max(0, p.life);
             p.mesh.scale.set(scale, scale, scale);
-            
-            if (p.life <= 0) {
-                this.scene.remove(p.mesh);
-                this.particles.splice(i, 1);
-            }
+            if (p.life <= 0) { this.scene.remove(p.mesh); this.particles.splice(i, 1); }
         }
     }
-
     clearAll() {
-        for (let i = 0; i < this.particles.length; i++) {
-            this.scene.remove(this.particles[i].mesh);
-        }
+        for (let i = 0; i < this.particles.length; i++) { this.scene.remove(this.particles[i].mesh); }
         this.particles = [];
     }
 }
 
-// ============================================================================
-// 9. LEVEL GENERATOR & DATA MANAGEMENT
-// ============================================================================
-
 class LevelDataBuilder {
-    
     static buildLevel(levelIndex) {
-        
-        const tw = ENGINE_CONFIG.TUNNEL_WIDTH;
-        const hw = tw / 2;
+        const tw = ENGINE_CONFIG.TUNNEL_WIDTH; // 80
+        const hw = tw / 2; // 40
         const depth = Math.floor(ENGINE_CONFIG.TUNNEL_DEPTH_BASE + (levelIndex * 200));        
-        let config = {
-            depth: depth,
-            // CHANGED: Base size from 40 to 80, Minimum size from 12 to 30
-            safeZoneWidth: Math.max(30, 120 - (levelIndex * 0.3)), 
-            obstacles: []
-        };
-
+        let config = { depth: depth, safeZoneWidth: Math.max(30, 120 - (levelIndex * 0.3)), obstacles: [] };
         const numObstacleLayers = Math.floor(depth / 90) - 2;
         const spacingY = 230;
 
         for (let layer = 1; layer <= numObstacleLayers; layer++) {
-            
             let yPos = -(layer * spacingY) - 50;
-            let difficultySeed = Math.random() + (levelIndex * 0.01);
-            
             const colorIdx = Math.floor(Math.random() * ENGINE_CONFIG.COLORS.RAINBOW.length);
             const layerColor = ENGINE_CONFIG.COLORS.RAINBOW[colorIdx];
-
-            let patternType = 0;
-            if (difficultySeed < 0.2) patternType = 1; 
-            else if (difficultySeed < 0.4) patternType = 2; 
-            else if (difficultySeed < 0.6) patternType = 3; 
-            else if (difficultySeed < 0.8) patternType = 4; 
-            else patternType = 5; 
-
-            if (levelIndex < 5 && patternType > 3) patternType = 1;
+            
+            let patternType = Math.floor(Math.random() * 40) + 1;
+            if (levelIndex < 5) patternType = Math.floor(Math.random() * 5) + 1; // Easy start
 
             switch(patternType) {
-                case 1: 
-                    config.obstacles.push({
-                        type: 'solid', x: -hw + 15, y: yPos, z: 0, w: 30, h: 10, d: tw, color: layerColor
-                    });
-                    if (Math.random() > 0.5) {
-                        config.obstacles.push({
-                            type: 'solid', x: hw - 15, y: yPos - 30, z: 0, w: 30, h: 10, d: tw, color: layerColor
-                        });
-                    }
+                case 1: // Side block
+                    config.obstacles.push({ type: 'solid', x: -hw + 15, y: yPos, z: 0, w: 30, h: 10, d: tw, color: layerColor });
+                    if (Math.random() > 0.5) config.obstacles.push({ type: 'solid', x: hw - 15, y: yPos - 30, z: 0, w: 30, h: 10, d: tw, color: layerColor });
                     break;
-                    
-                case 2: 
-                    config.obstacles.push({
-                        type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 15, color: layerColor
-                    });
-                    config.obstacles.push({
-                        type: 'solid', x: 0, y: yPos, z: 0, w: 15, h: 10, d: tw, color: layerColor
-                    });
+                case 2: // Corner L
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 15, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: 15, h: 10, d: tw, color: layerColor });
                     break;
-
-                case 3: 
-                    let moveAxis = Math.random() > 0.5 ? 'x' : 'z';
-                    let moveSpeed = 2 + (levelIndex * 0.1);
-                    config.obstacles.push({
-                        type: 'solid', x: 0, y: yPos, z: 0, w: 25, h: 10, d: 25, color: layerColor,
-                        moveAxis: moveAxis, moveSpeed: moveSpeed, moveRange: hw - 15
-                    });
+                case 3: // Moving block
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: 25, h: 10, d: 25, color: layerColor, moveAxis: Math.random()>0.5?'x':'z', moveSpeed: 2+(levelIndex*0.1), moveRange: hw-15 });
                     break;
-
-                case 4: 
-                    let lw = 20 + Math.random() * 20;
-                    let ld = 20 + Math.random() * 20;
-                    let lx = (Math.random() - 0.5) * (tw - lw);
-                    let lz = (Math.random() - 0.5) * (tw - ld);
-                    config.obstacles.push({
-                        type: 'lava', x: lx, y: yPos, z: lz, w: lw, h: 15, d: ld
-                    });
-                    config.obstacles.push({
-                        type: 'solid', x: -lx, y: yPos, z: -lz, w: lw, h: 10, d: ld, color: layerColor
-                    });
+                case 4: // Lava pit solid bridge
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: 40, h: 15, d: 40 });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: 40, h: 10, d: 40, color: layerColor });
                     break;
-
-                case 5: 
-                    let rotSpeed = 1.0 + (levelIndex * 0.05);
-                    config.obstacles.push({
-                        // h: 60 creates a "tall" invisible hitbox so you can't fall through it
-                        type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 60, d: 12, 
-                        color: layerColor, rotSpeedY: rotSpeed
-                    });
+                case 5: // Standard spinner
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 60, d: 12, color: layerColor, rotSpeedY: 1.0+(levelIndex*0.05) });
+                    break;
+                case 6: // Double spinners (counter rotation)
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 10, color: layerColor, rotSpeedY: 2.0 });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos-20, z: 0, w: tw, h: 10, d: 10, color: layerColor, rotSpeedY: -2.0 });
+                    break;
+                case 7: // Safe center hole (4 lava edges)
+                    config.obstacles.push({ type: 'lava', x: hw-10, y: yPos, z: 0, w: 20, h: 10, d: tw });
+                    config.obstacles.push({ type: 'lava', x: -(hw-10), y: yPos, z: 0, w: 20, h: 10, d: tw });
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: hw-10, w: tw-40, h: 10, d: 20 });
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: -(hw-10), w: tw-40, h: 10, d: 20 });
+                    break;
+                case 8: // Solid Frame
+                    config.obstacles.push({ type: 'solid', x: hw-10, y: yPos, z: 0, w: 20, h: 10, d: tw, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: -(hw-10), y: yPos, z: 0, w: 20, h: 10, d: tw, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: hw-10, w: tw-40, h: 10, d: 20, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: -(hw-10), w: tw-40, h: 10, d: 20, color: layerColor });
+                    break;
+                case 9: // Solid Cross
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 20, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: 20, h: 10, d: tw, color: layerColor });
+                    break;
+                case 10: // Lava Cross
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 15 });
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: 15, h: 10, d: tw });
+                    break;
+                case 11: // Diagonal Step
+                    config.obstacles.push({ type: 'solid', x: -20, y: yPos, z: -20, w: 30, h: 10, d: 30, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 20, y: yPos-40, z: 20, w: 30, h: 10, d: 30, color: layerColor });
+                    break;
+                case 12: // Four corners moving inward
+                    config.obstacles.push({ type: 'solid', x: hw-15, y: yPos, z: hw-15, w: 30, h: 10, d: 30, color: layerColor, moveAxis: 'x', moveSpeed: 2, moveRange: 15 });
+                    config.obstacles.push({ type: 'solid', x: -hw+15, y: yPos, z: -hw+15, w: 30, h: 10, d: 30, color: layerColor, moveAxis: 'x', moveSpeed: 2, moveRange: 15 });
+                    break;
+                case 13: // Safe corner, rest lava
+                    config.obstacles.push({ type: 'lava', x: 15, y: yPos, z: -15, w: 50, h: 10, d: 50 });
+                    break;
+                case 14: // Safe corner, rest solid
+                    config.obstacles.push({ type: 'solid', x: -15, y: yPos, z: 15, w: 50, h: 10, d: 50, color: layerColor });
+                    break;
+                case 15: // Multi-spinners offset
+                    config.obstacles.push({ type: 'solid', x: -15, y: yPos, z: -15, w: 40, h: 10, d: 5, color: layerColor, rotSpeedY: 3.0 });
+                    config.obstacles.push({ type: 'solid', x: 15, y: yPos, z: 15, w: 40, h: 10, d: 5, color: layerColor, rotSpeedY: 3.0 });
+                    break;
+                case 16: // Moving Glass floor
+                    config.obstacles.push({ type: 'glass', x: 0, y: yPos, z: 0, w: 40, h: 5, d: 40, moveAxis: 'z', moveSpeed: 1.5, moveRange: 20 });
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos-5, z: 0, w: tw, h: 5, d: tw });
+                    break;
+                case 17: // Plinko solids
+                    config.obstacles.push({ type: 'solid', x: -20, y: yPos, z: 0, w: 10, h: 10, d: 10, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 20, y: yPos, z: 0, w: 10, h: 10, d: 10, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos-30, z: -20, w: 10, h: 10, d: 10, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos-30, z: 20, w: 10, h: 10, d: 10, color: layerColor });
+                    break;
+                case 18: // Plinko lava
+                    config.obstacles.push({ type: 'lava', x: -20, y: yPos, z: 20, w: 15, h: 10, d: 15 });
+                    config.obstacles.push({ type: 'lava', x: 20, y: yPos, z: -20, w: 15, h: 10, d: 15 });
+                    break;
+                case 19: // Solid Checkerboard
+                    config.obstacles.push({ type: 'solid', x: 20, y: yPos, z: 20, w: 40, h: 10, d: 40, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: -20, y: yPos, z: -20, w: 40, h: 10, d: 40, color: layerColor });
+                    break;
+                case 20: // Lava Checkerboard
+                    config.obstacles.push({ type: 'lava', x: -20, y: yPos, z: 20, w: 40, h: 10, d: 40 });
+                    config.obstacles.push({ type: 'lava', x: 20, y: yPos, z: -20, w: 40, h: 10, d: 40 });
+                    break;
+                case 21: // Giant moving lava wall X
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 10, moveAxis: 'z', moveSpeed: 4, moveRange: 30 });
+                    break;
+                case 22: // Giant moving solid wall Z
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: 10, h: 10, d: tw, color: layerColor, moveAxis: 'x', moveSpeed: 4, moveRange: 30 });
+                    break;
+                case 23: // Squeezing blocks
+                    config.obstacles.push({ type: 'solid', x: -hw, y: yPos, z: 0, w: hw, h: 15, d: tw, color: layerColor, moveAxis: 'x', moveSpeed: 2, moveRange: 15 });
+                    config.obstacles.push({ type: 'solid', x: hw, y: yPos, z: 0, w: hw, h: 15, d: tw, color: layerColor, moveAxis: 'x', moveSpeed: 2, moveRange: -15 });
+                    break;
+                case 24: // The H Block
+                    config.obstacles.push({ type: 'solid', x: -20, y: yPos, z: 0, w: 10, h: 10, d: 60, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 20, y: yPos, z: 0, w: 10, h: 10, d: 60, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: 40, h: 10, d: 10, color: layerColor });
+                    break;
+                case 25: // Fast tiny spinners
+                    config.obstacles.push({ type: 'solid', x: -20, y: yPos, z: -20, w: 30, h: 5, d: 5, color: layerColor, rotSpeedY: 5 });
+                    config.obstacles.push({ type: 'solid', x: 20, y: yPos, z: 20, w: 30, h: 5, d: 5, color: layerColor, rotSpeedY: 5 });
+                    config.obstacles.push({ type: 'solid', x: 20, y: yPos, z: -20, w: 30, h: 5, d: 5, color: layerColor, rotSpeedY: 5 });
+                    config.obstacles.push({ type: 'solid', x: -20, y: yPos, z: 20, w: 30, h: 5, d: 5, color: layerColor, rotSpeedY: 5 });
+                    break;
+                case 26: // The U Block
+                    config.obstacles.push({ type: 'solid', x: -20, y: yPos, z: 0, w: 15, h: 10, d: 50, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 20, y: yPos, z: 0, w: 15, h: 10, d: 50, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 20, w: 40, h: 10, d: 15, color: layerColor });
+                    break;
+                case 27: // Diagonal bar
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: tw*1.2, h: 10, d: 10, color: layerColor, rotY: Math.PI/4 });
+                    break;
+                case 28: // Diagonal Lava bar
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: tw*1.2, h: 10, d: 10, rotY: -Math.PI/4 });
+                    break;
+                case 29: // Random Glass Scatter
+                    for(let i=0; i<4; i++) config.obstacles.push({ type: 'glass', x: (Math.random()-0.5)*60, y: yPos+(Math.random()*40), z: (Math.random()-0.5)*60, w: 20, h: 5, d: 20 });
+                    break;
+                case 30: // Moving Platforms X
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 20, w: 20, h: 5, d: 20, color: layerColor, moveAxis: 'x', moveSpeed: 3, moveRange: 30 });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: -20, w: 20, h: 5, d: 20, color: layerColor, moveAxis: 'x', moveSpeed: 3, moveRange: -30 });
+                    break;
+                case 31: // Center Pillar
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: 40, h: 60, d: 40, color: layerColor });
+                    break;
+                case 32: // Lava Floor with tiny safe squares
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: tw, h: 5, d: tw });
+                    config.obstacles.push({ type: 'solid', x: -25, y: yPos, z: -25, w: 15, h: 10, d: 15, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 25, y: yPos, z: 25, w: 15, h: 10, d: 15, color: layerColor });
+                    break;
+                case 33: // Massive block, tiny hole
+                    config.obstacles.push({ type: 'solid', x: 20, y: yPos, z: 0, w: tw-40, h: 20, d: tw, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: -30, y: yPos, z: 0, w: 20, h: 20, d: tw, color: layerColor });
+                    break;
+                case 34: // Spinner inside a frame
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: 50, h: 10, d: 5, color: layerColor, rotSpeedY: 2.5 });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: hw-5, w: tw, h: 10, d: 10, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: -hw+5, w: tw, h: 10, d: 10, color: layerColor });
+                    break;
+                case 35: // Stepping stones
+                    config.obstacles.push({ type: 'solid', x: -20, y: yPos, z: -20, w: 20, h: 5, d: 20, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos-20, z: 0, w: 20, h: 5, d: 20, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 20, y: yPos-40, z: 20, w: 20, h: 5, d: 20, color: layerColor });
+                    break;
+                case 36: // Lava Star
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 10, rotY: Math.PI/4 });
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 10, rotY: -Math.PI/4 });
+                    break;
+                case 37: // T-Block
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: -20, w: 60, h: 10, d: 15, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 10, w: 15, h: 10, d: 40, color: layerColor });
+                    break;
+                case 38: // Corner wedges (approximated)
+                    config.obstacles.push({ type: 'solid', x: 30, y: yPos, z: 30, w: 20, h: 20, d: 20, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: -30, y: yPos, z: -30, w: 20, h: 20, d: 20, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: 30, y: yPos, z: -30, w: 20, h: 20, d: 20, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: -30, y: yPos, z: 30, w: 20, h: 20, d: 20, color: layerColor });
+                    break;
+                case 39: // Lava ring moving
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 20, w: 60, h: 5, d: 10, moveAxis: 'x', moveSpeed: 2, moveRange: 10 });
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: -20, w: 60, h: 5, d: 10, moveAxis: 'x', moveSpeed: 2, moveRange: 10 });
+                    config.obstacles.push({ type: 'lava', x: 25, y: yPos, z: 0, w: 10, h: 5, d: 50, moveAxis: 'x', moveSpeed: 2, moveRange: 10 });
+                    config.obstacles.push({ type: 'lava', x: -25, y: yPos, z: 0, w: 10, h: 5, d: 50, moveAxis: 'x', moveSpeed: 2, moveRange: 10 });
+                    break;
+                case 40: // The Blender
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 15, d: 5, color: layerColor, rotSpeedY: 4.0 });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: 5, h: 15, d: tw, color: layerColor, rotSpeedY: -3.0 });
                     break;
             }
-
-            
         }
 
         if (levelIndex === 100) {
             config.depth = 15000;
             config.safeZoneWidth = 8; 
             config.obstacles = [];
-            
             for (let y = -100; y > -14500; y -= 60) {
                 let rSpeed = (y / -14500) * 5.0; 
-                config.obstacles.push({
-                    type: 'lava', x: 0, y: y, z: 0, w: tw * 0.9, h: 5, d: 5, rotSpeedY: rSpeed
-                });
-                config.obstacles.push({
-                    type: 'solid', x: 0, y: y, z: 0, w: 5, h: 5, d: tw * 0.9, color: 0xffffff, rotSpeedY: -rSpeed
-                });
+                config.obstacles.push({ type: 'lava', x: 0, y: y, z: 0, w: tw * 0.9, h: 5, d: 5, rotSpeedY: rSpeed });
+                config.obstacles.push({ type: 'solid', x: 0, y: y, z: 0, w: 5, h: 5, d: tw * 0.9, color: 0xffffff, rotSpeedY: -rSpeed });
             }
         }
-
         return config;
     }
 }
@@ -1079,14 +1002,12 @@ class GameEngine {
         
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x000000);
-        
         this.scene.fog = new THREE.FogExp2(0x000000, 0.0015);
 
         this.camera = new THREE.PerspectiveCamera(ENGINE_CONFIG.FOV, window.innerWidth / window.innerHeight, 0.1, 3000);
         this.cameraOffset = new THREE.Vector3(0, 15, 8);
 
         this.setupLighting();
-
         this.input = new InputManager();
         this.audio = new SynthesisEngine();
         this.player = new RobloxCharacter(this.scene);
@@ -1098,15 +1019,12 @@ class GameEngine {
         this.clock = new THREE.Clock();
         this.globalTime = 0;
         this.deathTimer = 0;
-
         this.tunnel = null;
         this.safeZoneTarget = null;
         this.obstacles = [];
 
         window.addEventListener('resize', this.onWindowResize.bind(this), false);
         this.onWindowResize();
-
-// Start in Login state instead of Menu
         this.setGameState(GAME_STATES.LOGIN);
         this.gameLoop();
     }
@@ -1114,24 +1032,19 @@ class GameEngine {
     setupLighting() {
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambientLight);
-
         this.dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
         this.dirLight.position.set(20, 50, 20);
         this.dirLight.castShadow = true;
-        
         this.dirLight.shadow.mapSize.width = 1024;
         this.dirLight.shadow.mapSize.height = 1024;
         this.dirLight.shadow.camera.near = 0.5;
         this.dirLight.shadow.camera.far = 150;
-        
         const d = 40;
         this.dirLight.shadow.camera.left = -d;
         this.dirLight.shadow.camera.right = d;
         this.dirLight.shadow.camera.top = d;
         this.dirLight.shadow.camera.bottom = -d;
-        
         this.scene.add(this.dirLight);
-
         this.playerLight = new THREE.PointLight(0xffffff, 0.6, 150);
         this.scene.add(this.playerLight);
     }
@@ -1151,8 +1064,6 @@ class GameEngine {
         const hudBar = document.getElementById('hud-bar');
         const controlsHint = document.getElementById('controls-hint');
 
-        // Only show keyboard hint if user is NOT on a touch device
-        // FIX: Toggle the "SPLAT" and "SAFE" menu visibility
         if (newState === GAME_STATES.PLAYING || newState === GAME_STATES.DYING || newState === GAME_STATES.LOGIN) {
             overlay.classList.add('hidden');
         } else {
@@ -1166,7 +1077,6 @@ class GameEngine {
                 controlsHint.classList.add('hidden');
                 this.audio.initialize(); 
                 break;
-
             case GAME_STATES.MENU:
                 loginScreen.classList.add('hidden');
                 hudBar.classList.remove('hidden');
@@ -1175,19 +1085,16 @@ class GameEngine {
                 this.titleSub.innerText = "CLICK OR SPACE TO DROP";
                 this.loadLevel(this.currentLevel);
                 break;
-                
             case GAME_STATES.PLAYING:
                 this.audio.initialize(); 
                 this.audio.sfxDrop();
                 break;
-                
             case GAME_STATES.DYING:
                 this.deathTimer = 0;
                 this.audio.sfxHit(); 
                 this.player.velocity.set(0,0,0); 
                 document.getElementById('speed-lines').style.background = 'radial-gradient(circle, transparent 10%, rgba(255,0,0,0.8) 100%)';
                 break;
-
             case GAME_STATES.DEAD:
                 this.titleMain.innerText = "SPLAT!";
                 this.titleSub.innerText = "PRESS SPACE TO RETRY";
@@ -1203,14 +1110,12 @@ class GameEngine {
                     document.getElementById('speed-lines').style.background = 'radial-gradient(circle, transparent 10%, rgba(0,0,0,0.9) 100%)';
                 }, 150);
                 break;
-                
             case GAME_STATES.VICTORY:
                 this.titleMain.innerText = "SAFE!";
                 this.titleSub.innerText = "PRESS SPACE TO ADVANCE";
                 this.audio.sfxWin();
                 this.player.velocity.set(0, 0, 0);
                 break;
-                
             case GAME_STATES.GAME_OVER:
                 this.titleMain.innerText = "100 LEVELS BEATEN";
                 this.titleSub.innerText = "YOU ARE A GOD. REFRESH TO RESTART";
@@ -1222,7 +1127,6 @@ class GameEngine {
     clearCurrentLevel() {
         if (this.tunnel) this.tunnel.destroy();
         if (this.safeZoneTarget) this.safeZoneTarget.destroy();
-        
         for (let i = 0; i < this.obstacles.length; i++) {
             this.obstacles[i].destroy();
         }
@@ -1232,21 +1136,14 @@ class GameEngine {
 
     loadLevel(levelIndex) {
         this.clearCurrentLevel();
-        
         this.uiLevel.innerText = levelIndex;
-        
         const levelData = LevelDataBuilder.buildLevel(levelIndex);
-        
         this.tunnel = new RainbowTunnel(this.scene, levelData.depth, ENGINE_CONFIG.TUNNEL_WIDTH);
-        
         for (let i = 0; i < levelData.obstacles.length; i++) {
             this.obstacles.push(new ObstacleObject(this.scene, levelData.obstacles[i]));
         }
-
         this.safeZoneTarget = new SafeZoneTarget(this.scene, -levelData.depth, levelData.safeZoneWidth, levelData.depth);
-
         this.player.reset(0);
-        
         this.updateCamera(true);
     }
     
@@ -1303,53 +1200,41 @@ class GameEngine {
 
     gameLoop() {
         requestAnimationFrame(this.gameLoop.bind(this));
-        
         const dt = Math.min(this.clock.getDelta(), 0.05); 
         this.globalTime += dt;
 
         switch (this.gameState) {
             case GAME_STATES.LOGIN:
-                // Camera circles slowly while waiting for login
                 this.camera.position.set(Math.sin(this.globalTime * 0.3) * 40, 20, Math.cos(this.globalTime * 0.3) * 40);
                 this.camera.lookAt(0, -10, 0);
                 break;
-
             case GAME_STATES.MENU:
-                if (this.input.consumeAction()) {
-                    this.setGameState(GAME_STATES.PLAYING);
-                }
+                if (this.input.consumeAction()) this.setGameState(GAME_STATES.PLAYING);
                 this.camera.position.set(Math.sin(this.globalTime * 0.5) * 30, 15, Math.cos(this.globalTime * 0.5) * 30);
                 this.camera.lookAt(0, -20, 0);
                 break;
-
             case GAME_STATES.PLAYING:
                 const axes = this.input.getHorizontalAxis();
                 this.player.update(dt, axes, ENGINE_CONFIG.TUNNEL_WIDTH);
-                // This makes the bar actually fill up as you fall
                 let progress = this.safeZoneTarget ? Math.min(100, Math.max(0, (this.player.group.position.y / this.safeZoneTarget.yPos) * 100)) : 0;
                 document.getElementById('progress-fill').style.width = progress + "%";
-                
                 for (let i = 0; i < this.obstacles.length; i++) {
                     this.obstacles[i].update(dt, this.globalTime);
                 }
-                
                 this.detectCollisions();
                 this.updateCamera();
                 break;
-                
             case GAME_STATES.DYING:
                 this.deathTimer += dt;
                 this.camera.position.z -= 15 * dt; 
                 this.camera.fov -= 25 * dt; 
                 this.camera.updateProjectionMatrix();
-                
                 if (this.deathTimer > 0.8) { 
                     this.camera.fov = ENGINE_CONFIG.FOV;
                     this.camera.updateProjectionMatrix();
                     this.setGameState(GAME_STATES.DEAD);
                 }
                 break;
-
             case GAME_STATES.DEAD:
                 this.particles.update(dt);
                 if (this.input.consumeAction()) {
@@ -1357,7 +1242,6 @@ class GameEngine {
                     this.setGameState(GAME_STATES.PLAYING);
                 }
                 break;
-
             case GAME_STATES.VICTORY:
                 if (this.input.consumeAction()) {
                     this.currentLevel++;
@@ -1370,34 +1254,27 @@ class GameEngine {
                     }
                 }
                 break;
-                
             case GAME_STATES.GAME_OVER:
                 this.camera.position.x = Math.sin(this.globalTime) * 30;
                 this.camera.position.z = Math.cos(this.globalTime) * 30;
                 this.camera.lookAt(0, this.safeZoneTarget.yPos, 0);
                 break;
         }
-
         this.renderer.render(this.scene, this.camera);
     }
 }
 
 // ============================================================================
-// 11. BOOTSTRAP
-// ============================================================================
-
-// ============================================================================
 // 11. BOOTSTRAP & SAVE SYSTEM
 // ============================================================================
 
-let dropperGame; // Make the game accessible globally
+let dropperGame; 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztv7ejAb1k3I5N08-JDKAAlNHHzQbgn1S9i1LkmYcRroa059GVRqfqDd13Ln5Iev91/exec";
 
 window.onload = () => {
     dropperGame = new GameEngine();
 };
 
-// Handle Saving
 document.getElementById('save-btn').addEventListener('click', () => {
     if (document.getElementById('save-btn').disabled) return;
     const user = document.getElementById('username-input').value.trim();
@@ -1414,12 +1291,11 @@ document.getElementById('save-btn').addEventListener('click', () => {
     .then(r => r.json())
     .then(data => {
         dropperGame.currentLevel = 1;
-        dropperGame.setGameState(GAME_STATES.MENU); // Unlocks the game
+        dropperGame.setGameState(GAME_STATES.MENU);
     })
     .catch(err => showStatus("ERROR SAVING!"));
 });
 
-// Handle Loading
 document.getElementById('load-btn').addEventListener('click', () => {
     const user = document.getElementById('username-input').value.trim();
     if(!user) return alert("ENTER A USERNAME FIRST!");
@@ -1435,7 +1311,7 @@ document.getElementById('load-btn').addEventListener('click', () => {
     .then(data => {
         if(data.status === "loaded") {
             dropperGame.currentLevel = parseInt(data.level);
-            dropperGame.setGameState(GAME_STATES.MENU); // Unlocks the game
+            dropperGame.setGameState(GAME_STATES.MENU);
         } else {
             showStatus("NO SAVE FOUND!");
         }

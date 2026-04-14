@@ -198,6 +198,16 @@
             text-shadow: 2px 2px 0px #000000;
             letter-spacing: 2px;
         }
+
+
+        /* Mobile UI Optimization */
+        @media screen and (max-height: 500px) {
+            .hud-container { padding: 10px 20px !important; }
+            .hud-panel { padding: 5px 15px !important; background: rgba(0,0,0,0.3) !important; border-width: 2px !important; }
+            .hud-text { font-size: 20px !important; }
+            .title-main { font-size: 60px !important; }
+            .title-sub { font-size: 24px !important; padding: 5px 15px !important; }
+        }
         #landscape-warning { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #00ffcc; z-index: 9999; text-align: center; justify-content: center; align-items: center; flex-direction: column; font-family: 'Impact'; }
         #landscape-warning h1 { font-size: 60px; margin: 0; }
         @media screen and (max-width: 900px) and (orientation: portrait) { #landscape-warning { display: flex !important; } #game-canvas, #ui-layer { display: none !important; } }
@@ -229,6 +239,7 @@
             <div class="hud-panel">
                 <p class="hud-text">LEVEL: <span id="level-value">1</span>/100</p>
             </div>
+            <div class="hud-panel" style="flex-grow: 1; margin: 0 20px; position: relative; overflow: hidden;"><div id="progress-fill" style="position: absolute; top: 0; left: 0; width: 0%; height: 100%; background: linear-gradient(90deg, #00ffcc, #00ff00); box-shadow: 0 0 15px #00ffcc;"></div></div>
             <div class="hud-panel">
                 <p class="hud-text">DEATHS: <span id="fails-value">0</span></p>
             </div>
@@ -944,8 +955,7 @@ class LevelDataBuilder {
         
         const tw = ENGINE_CONFIG.TUNNEL_WIDTH;
         const hw = tw / 2;
-        const depth = Math.floor(ENGINE_CONFIG.TUNNEL_DEPTH_BASE + (Math.pow(levelIndex, 1.5) * ENGINE_CONFIG.TUNNEL_DEPTH_MULT));
-        
+        const depth = Math.floor(ENGINE_CONFIG.TUNNEL_DEPTH_BASE + (levelIndex * 200));        
         let config = {
             depth: depth,
             // CHANGED: Base size from 40 to 80, Minimum size from 12 to 30
@@ -1139,10 +1149,12 @@ class GameEngine {
         const hudBar = document.getElementById('hud-bar');
         const controlsHint = document.getElementById('controls-hint');
 
-        if (newState === GAME_STATES.PLAYING || newState === GAME_STATES.DYING || newState === GAME_STATES.LOGIN) {
-            overlay.classList.add('hidden');
+        // Only show keyboard hint if user is NOT on a touch device
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (newState === GAME_STATES.MENU && !isTouch) {
+            controlsHint.classList.remove('hidden');
         } else {
-            overlay.classList.remove('hidden');
+            controlsHint.classList.add('hidden');
         }
 
         switch (newState) {
@@ -1301,6 +1313,9 @@ class GameEngine {
             case GAME_STATES.PLAYING:
                 const axes = this.input.getHorizontalAxis();
                 this.player.update(dt, axes, ENGINE_CONFIG.TUNNEL_WIDTH);
+                // This makes the bar actually fill up as you fall
+                let progress = Math.min(100, Math.max(0, (this.player.group.position.y / -this.safeZoneTarget.yPos) * 100));
+                document.getElementById('progress-fill').style.width = progress + "%";
                 
                 for (let i = 0; i < this.obstacles.length; i++) {
                     this.obstacles[i].update(dt, this.globalTime);

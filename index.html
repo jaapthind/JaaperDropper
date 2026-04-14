@@ -1029,7 +1029,9 @@ class LevelDataBuilder {
                 case 5: 
                     let rotSpeed = 1.0 + (levelIndex * 0.05);
                     config.obstacles.push({
-                        type: 'solid', x: 0, y: yPos, z: 0, w: tw - 10, h: 8, d: 8, color: layerColor, rotSpeedY: rotSpeed
+                        // Changed w to tw (Full Width) and d to 12 (Thicker bar)
+                        type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 12, 
+                        color: layerColor, rotSpeedY: rotSpeed
                     });
                     break;
             }

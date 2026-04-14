@@ -1150,11 +1150,11 @@ class GameEngine {
         const controlsHint = document.getElementById('controls-hint');
 
         // Only show keyboard hint if user is NOT on a touch device
-        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        if (newState === GAME_STATES.MENU && !isTouch) {
-            controlsHint.classList.remove('hidden');
+        // FIX: Toggle the "SPLAT" and "SAFE" menu visibility
+        if (newState === GAME_STATES.PLAYING || newState === GAME_STATES.DYING || newState === GAME_STATES.LOGIN) {
+            overlay.classList.add('hidden');
         } else {
-            controlsHint.classList.add('hidden');
+            overlay.classList.remove('hidden');
         }
 
         switch (newState) {
@@ -1314,7 +1314,7 @@ class GameEngine {
                 const axes = this.input.getHorizontalAxis();
                 this.player.update(dt, axes, ENGINE_CONFIG.TUNNEL_WIDTH);
                 // This makes the bar actually fill up as you fall
-                let progress = Math.min(100, Math.max(0, (this.player.group.position.y / -this.safeZoneTarget.yPos) * 100));
+                let progress = this.safeZoneTarget ? Math.min(100, Math.max(0, (this.player.group.position.y / this.safeZoneTarget.yPos) * 100)) : 0;
                 document.getElementById('progress-fill').style.width = progress + "%";
                 
                 for (let i = 0; i < this.obstacles.length; i++) {

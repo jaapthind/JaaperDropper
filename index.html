@@ -250,7 +250,7 @@ const ENGINE_CONFIG = {
     TUNNEL_WIDTH: 80,
     TUNNEL_DEPTH_BASE: 1000,
     TUNNEL_DEPTH_MULT: 150,
-    BASE_GRAVITY: 95.0,
+    BASE_GRAVITY: 70.0,
     MAX_TERMINAL_VELOCITY: 300.0,
     PLAYER_SIZE: 2.5,
     PLAYER_SPEED: 300.0,
@@ -260,7 +260,7 @@ const ENGINE_CONFIG = {
     TOTAL_LEVELS: 100,
     COLORS: {
         // Automatically generates a perfectly smooth 80-color spectrum using HSL math!
-        RAINBOW: Array.from({length: 300}, (_, i) => new THREE.Color().setHSL(i / 300, 1.0, 0.5).getHex()),
+        RAINBOW: Array.from({length: 100}, (_, i) => new THREE.Color().setHSL(i / 100, 1.0, 0.5).getHex()),
         LAVA: 0xff3300,
         SAFE: 0x00ffaa,
         DEATH: 0x111111,

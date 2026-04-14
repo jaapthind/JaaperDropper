@@ -267,19 +267,18 @@
 // ============================================================================
 
 const ENGINE_CONFIG = {
-    TUNNEL_WIDTH: 80,
+    TUNNEL_WIDTH: 240, // WAS 80 - NOW 3X WIDER!
     TUNNEL_DEPTH_BASE: 1000,
     TUNNEL_DEPTH_MULT: 150,
     BASE_GRAVITY: 94.0,
-    MAX_TERMINAL_VELOCITY: 300.0,
+    MAX_TERMINAL_VELOCITY: 350.0, // Fall slightly faster
     PLAYER_SIZE: 2.5,
-    PLAYER_SPEED: 300.0,
+    PLAYER_SPEED: 550.0, // Boosted sideways speed to cross the giant gap
     FRICTION: 0.90,
     CAMERA_SMOOTHING: 0.12,
     FOV: 95,
     TOTAL_LEVELS: 100,
     COLORS: {
-        // Automatically generates a perfectly smooth 80-color spectrum using HSL math!
         RAINBOW: Array.from({length: 100}, (_, i) => new THREE.Color().setHSL(i / 100, 1.0, 0.5).getHex()),
         LAVA: 0xff3300,
         SAFE: 0x00ffaa,
@@ -950,108 +949,73 @@ class ParticleSystem {
 // ============================================================================
 
 class LevelDataBuilder {
-    
     static buildLevel(levelIndex) {
-        
         const tw = ENGINE_CONFIG.TUNNEL_WIDTH;
         const hw = tw / 2;
         const depth = Math.floor(ENGINE_CONFIG.TUNNEL_DEPTH_BASE + (levelIndex * 200));        
         let config = {
             depth: depth,
-            // CHANGED: Base size from 40 to 80, Minimum size from 12 to 30
             safeZoneWidth: Math.max(30, 120 - (levelIndex * 0.3)), 
             obstacles: []
         };
 
-        const numObstacleLayers = Math.floor(depth / 90) - 2;
-        const spacingY = 230;
+        const numObstacleLayers = Math.floor(depth / 150); // Spaced out slightly for huge obstacles
+        const spacingY = 250;
 
         for (let layer = 1; layer <= numObstacleLayers; layer++) {
-            
             let yPos = -(layer * spacingY) - 50;
-            let difficultySeed = Math.random() + (levelIndex * 0.01);
-            
             const colorIdx = Math.floor(Math.random() * ENGINE_CONFIG.COLORS.RAINBOW.length);
             const layerColor = ENGINE_CONFIG.COLORS.RAINBOW[colorIdx];
 
-            let patternType = 0;
-            if (difficultySeed < 0.2) patternType = 1; 
-            else if (difficultySeed < 0.4) patternType = 2; 
-            else if (difficultySeed < 0.6) patternType = 3; 
-            else if (difficultySeed < 0.8) patternType = 4; 
-            else patternType = 5; 
-
-            if (levelIndex < 5 && patternType > 3) patternType = 1;
+            let patternType = Math.floor(Math.random() * 5) + 1; 
+            if (levelIndex < 3 && patternType > 2) patternType = 1; // Easy first few levels
 
             switch(patternType) {
-                case 1: 
-                    config.obstacles.push({
-                        type: 'solid', x: -hw + 15, y: yPos, z: 0, w: 30, h: 10, d: tw, color: layerColor
-                    });
-                    if (Math.random() > 0.5) {
-                        config.obstacles.push({
-                            type: 'solid', x: hw - 15, y: yPos - 30, z: 0, w: 30, h: 10, d: tw, color: layerColor
-                        });
-                    }
+                case 1: // THE CRUSHERS (Moving walls from the edges)
+                    config.obstacles.push({ type: 'solid', x: hw - 20, y: yPos, z: 0, w: 80, h: 20, d: tw, color: layerColor, moveAxis: 'x', moveSpeed: 2, moveRange: 50 });
+                    config.obstacles.push({ type: 'solid', x: -(hw - 20), y: yPos, z: 0, w: 80, h: 20, d: tw, color: layerColor, moveAxis: 'x', moveSpeed: 2, moveRange: -50 });
                     break;
                     
-                case 2: 
-                    config.obstacles.push({
-                        type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 10, d: 15, color: layerColor
-                    });
-                    config.obstacles.push({
-                        type: 'solid', x: 0, y: yPos, z: 0, w: 15, h: 10, d: tw, color: layerColor
-                    });
+                case 2: // THE LASER GRID + MOVING BLOCKS
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: tw, h: 8, d: 15 });
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos, z: 0, w: 15, h: 8, d: tw });
+                    config.obstacles.push({ type: 'solid', x: hw/2, y: yPos, z: hw/2, w: 50, h: 20, d: 50, color: layerColor, moveAxis: 'x', moveSpeed: 3, moveRange: 40 });
+                    config.obstacles.push({ type: 'solid', x: -hw/2, y: yPos, z: -hw/2, w: 50, h: 20, d: 50, color: layerColor, moveAxis: 'z', moveSpeed: 3, moveRange: 40 });
                     break;
 
-                case 3: 
-                    let moveAxis = Math.random() > 0.5 ? 'x' : 'z';
-                    let moveSpeed = 2 + (levelIndex * 0.1);
-                    config.obstacles.push({
-                        type: 'solid', x: 0, y: yPos, z: 0, w: 25, h: 10, d: 25, color: layerColor,
-                        moveAxis: moveAxis, moveSpeed: moveSpeed, moveRange: hw - 15
-                    });
-                    break;
-
-                case 4: 
-                    let lw = 20 + Math.random() * 20;
-                    let ld = 20 + Math.random() * 20;
-                    let lx = (Math.random() - 0.5) * (tw - lw);
-                    let lz = (Math.random() - 0.5) * (tw - ld);
-                    config.obstacles.push({
-                        type: 'lava', x: lx, y: yPos, z: lz, w: lw, h: 15, d: ld
-                    });
-                    config.obstacles.push({
-                        type: 'solid', x: -lx, y: yPos, z: -lz, w: lw, h: 10, d: ld, color: layerColor
-                    });
-                    break;
-
-                case 5: 
+                case 3: // THE MEGA SWEEPER (Giant rotating bar + lava rings)
                     let rotSpeed = 1.0 + (levelIndex * 0.05);
-                    config.obstacles.push({
-                        // h: 60 creates a "tall" invisible hitbox so you can't fall through it
-                        type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 60, d: 12, 
-                        color: layerColor, rotSpeedY: rotSpeed
-                    });
+                    config.obstacles.push({ type: 'solid', x: 0, y: yPos, z: 0, w: tw, h: 50, d: 25, color: layerColor, rotSpeedY: rotSpeed });
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos-30, z: hw/1.5, w: 50, h: 10, d: 50 });
+                    config.obstacles.push({ type: 'lava', x: 0, y: yPos-30, z: -hw/1.5, w: 50, h: 10, d: 50 });
+                    break;
+
+                case 4: // THE CHECKERBOARD OF DEATH (Massive Lava Squares)
+                    config.obstacles.push({ type: 'lava', x: hw/2, y: yPos, z: hw/2, w: hw, h: 20, d: hw });
+                    config.obstacles.push({ type: 'lava', x: -hw/2, y: yPos, z: -hw/2, w: hw, h: 20, d: hw });
+                    config.obstacles.push({ type: 'solid', x: hw/2, y: yPos, z: -hw/2, w: hw, h: 15, d: hw, color: layerColor });
+                    config.obstacles.push({ type: 'solid', x: -hw/2, y: yPos, z: hw/2, w: hw, h: 15, d: hw, color: layerColor });
+                    break;
+
+                case 5: // ASTEROID FIELD (Random massive floating blocks)
+                    for(let i=0; i<8; i++) {
+                        let ix = (Math.random() - 0.5) * (tw - 50);
+                        let iz = (Math.random() - 0.5) * (tw - 50);
+                        config.obstacles.push({ type: 'solid', x: ix, y: yPos + (Math.random()*60 - 30), z: iz, w: 40, h: 15, d: 40, color: layerColor, moveAxis: Math.random()>0.5?'x':'z', moveSpeed: Math.random()*2+1, moveRange: 35 });
+                    }
                     break;
             }
-
-            
         }
 
+        // Keep the level 100 boss logic
         if (levelIndex === 100) {
             config.depth = 15000;
             config.safeZoneWidth = 8; 
             config.obstacles = [];
-            
             for (let y = -100; y > -14500; y -= 60) {
                 let rSpeed = (y / -14500) * 5.0; 
-                config.obstacles.push({
-                    type: 'lava', x: 0, y: y, z: 0, w: tw * 0.9, h: 5, d: 5, rotSpeedY: rSpeed
-                });
-                config.obstacles.push({
-                    type: 'solid', x: 0, y: y, z: 0, w: 5, h: 5, d: tw * 0.9, color: 0xffffff, rotSpeedY: -rSpeed
-                });
+                config.obstacles.push({ type: 'lava', x: 0, y: y, z: 0, w: tw * 0.9, h: 5, d: 5, rotSpeedY: rSpeed });
+                config.obstacles.push({ type: 'solid', x: 0, y: y, z: 0, w: 5, h: 5, d: tw * 0.9, color: 0xffffff, rotSpeedY: -rSpeed });
             }
         }
 
@@ -1268,36 +1232,33 @@ class GameEngine {
     }
 
     updateCamera(snap = false) {
-        // 1. BASE POSITION: Z: 5 keeps it inside the tunnel, Y: 18 gives a good top-down view
-        const targetPos = this.player.group.position.clone().add(new THREE.Vector3(0, 18, 5));
+        // LOCK THE CAMERA TO THE DEAD CENTER (X: 0, Z: 0)
+        const targetPos = new THREE.Vector3(0, this.player.group.position.y + 35, 0);
         
-        // 2. HARD BOUNDARIES: Physically stops the camera from ever touching a wall
-        const camLimit = (ENGINE_CONFIG.TUNNEL_WIDTH / 2) - 2; 
-        targetPos.x = Math.max(-camLimit, Math.min(camLimit, targetPos.x));
-        targetPos.z = Math.max(-camLimit, Math.min(camLimit, targetPos.z));
-        
-        // 3. SMOOTH GLIDE: Uses a lower lerp value (0.1) for much smoother, less "jerky" movement
         if (snap) {
             this.camera.position.copy(targetPos);
         } else {
-            this.camera.position.lerp(targetPos, 0.1); 
+            this.camera.position.lerp(targetPos, 0.15);
         }
         
-        // 4. FIXED LOOK-TARGET: No more shifting based on velocity. It stays locked on the player.
-        const lookTarget = this.player.group.position.clone();
-        lookTarget.y -= 25; // Still look down so you can see obstacles
+        // Tilt the camera very slightly to look at the player, but mostly look straight down
+        const lookTarget = new THREE.Vector3(
+            this.player.group.position.x * 0.1, 
+            this.player.group.position.y - 25, 
+            this.player.group.position.z * 0.1
+        );
         this.camera.lookAt(lookTarget);
 
-        // 5. STABLE FOV: Only widens very slightly at high speeds
+        // Very slight speed-zoom effect
         if (this.gameState === GAME_STATES.PLAYING) {
             const speedRatio = Math.abs(this.player.velocity.y) / ENGINE_CONFIG.MAX_TERMINAL_VELOCITY;
-            const targetFOV = ENGINE_CONFIG.FOV + (speedRatio * 8); // Reduced from 18 to 8 for stability
-            this.camera.fov += (targetFOV - this.camera.fov) * 0.05; 
+            const targetFOV = ENGINE_CONFIG.FOV + (speedRatio * 5); 
+            this.camera.fov += (targetFOV - this.camera.fov) * 0.1; 
             this.camera.updateProjectionMatrix();
         }
 
-        // 6. LIGHTING: Keep it centered on the player
-        this.dirLight.position.set(this.player.group.position.x, this.player.group.position.y + 20, this.player.group.position.z);
+        // Keep lighting centered
+        this.dirLight.position.set(0, this.player.group.position.y + 20, 0);
         this.playerLight.position.copy(this.player.group.position);
     }
 

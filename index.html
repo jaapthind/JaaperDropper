@@ -194,6 +194,13 @@
     <div id="speed-lines"></div>
 
     <div id="ui-layer">
+        <div id="save-system" style="position:absolute; top:20px; right:20px; background:rgba(0,0,0,0.8); border:3px solid #fff; padding:15px; border-radius:10px; z-index:100; text-align:center;">
+        <input type="text" id="username-input" placeholder="USERNAME" maxlength="15" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')" style="padding:10px; font-family:'Impact'; font-size:18px; width:150px; margin-bottom:10px; border:2px solid #fff; background:#222; color:#fff;">
+            <br>
+            <button id="load-btn" style="padding:10px 15px; font-family:'Impact'; font-size:18px; background:#00ffcc; border:2px solid #fff; cursor:pointer;">LOAD</button>
+            <button id="save-btn" style="padding:10px 15px; font-family:'Impact'; font-size:18px; background:#ff3366; border:2px solid #fff; color:white; cursor:pointer;">SAVE</button>
+            <div id="save-status" style="font-size:18px; color:#ffff00; margin-top:10px; text-shadow: 2px 2px 0px #000; display:none;"></div>
+        </div>
         <div class="hud-container">
             <div class="hud-panel">
                 <p class="hud-text">LEVEL: <span id="level-value">1</span>/100</p>
@@ -1352,9 +1359,68 @@ class GameEngine {
 // 11. BOOTSTRAP
 // ============================================================================
 
+// ============================================================================
+// 11. BOOTSTRAP & SAVE SYSTEM
+// ============================================================================
+
+let dropperGame; // Make the game accessible globally
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbztv7ejAb1k3I5N08-JDKAAlNHHzQbgn1S9i1LkmYcRroa059GVRqfqDd13Ln5Iev91/exec";
+
 window.onload = () => {
-    const dropperGame = new GameEngine();
+    dropperGame = new GameEngine();
 };
+
+// Handle Saving
+document.getElementById('save-btn').addEventListener('click', () => {
+    if (document.getElementById('save-btn').disabled) return;
+    const user = document.getElementById('username-input').value.trim();
+    if(!user) return alert("ENTER A USERNAME FIRST!");
+    
+    showStatus("SAVING...");
+    document.getElementById('save-btn').disabled = true; setTimeout(() => { document.getElementById('save-btn').disabled = false; }, 5000);
+    
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'save', username: user, level: dropperGame.currentLevel })
+    })
+    .then(r => r.json())
+    .then(data => showStatus("SAVED LEVEL " + data.level + "!"))
+    .catch(err => showStatus("ERROR SAVING!"));
+});
+
+// Handle Loading
+document.getElementById('load-btn').addEventListener('click', () => {
+    const user = document.getElementById('username-input').value.trim();
+    if(!user) return alert("ENTER A USERNAME FIRST!");
+    
+    showStatus("LOADING...");
+    
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'load', username: user })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if(data.status === "loaded") {
+            dropperGame.currentLevel = parseInt(data.level);
+            dropperGame.loadLevel(dropperGame.currentLevel);
+            dropperGame.setGameState(GAME_STATES.MENU); // Reset them to start of loaded level
+            showStatus("LOADED LEVEL " + data.level + "!");
+        } else {
+            showStatus("NO SAVE FOUND!");
+        }
+    })
+    .catch(err => showStatus("ERROR LOADING!"));
+});
+
+function showStatus(text) {
+    const statusDiv = document.getElementById('save-status');
+    statusDiv.innerText = text;
+    statusDiv.style.display = "block";
+    setTimeout(() => { statusDiv.style.display = "none"; }, 3000);
+}
 
 </script>
 </body>

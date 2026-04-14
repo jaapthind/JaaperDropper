@@ -39,7 +39,7 @@
         /* ==========================================================================
            UI LAYER & HUD
            ========================================================================== */
-        #ui-layer {
+       #ui-layer {
             position: absolute;
             top: 0;
             left: 0;
@@ -47,9 +47,6 @@
             height: 100%;
             z-index: 10;
             pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
         }
 
         .hud-container {
@@ -103,6 +100,23 @@
             width: 100%;
             pointer-events: auto;
         }
+        #login-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 5px solid #fff;
+            padding: 50px;
+            border-radius: 15px;
+            text-align: center;
+            pointer-events: auto; /* THIS FIXES THE CLICKING */
+            box-shadow: 0px 0px 50px rgba(0, 255, 204, 0.3);
+            z-index: 1000;
+        }
+        
+        /* Utility to hide UI elements */
+        .hidden { display: none !important; }
 
         .title-main {
             font-size: 110px;
@@ -194,14 +208,17 @@
     <div id="speed-lines"></div>
 
     <div id="ui-layer">
-        <div id="save-system" style="position:absolute; top:20px; right:20px; background:rgba(0,0,0,0.8); border:3px solid #fff; padding:15px; border-radius:10px; z-index:100; text-align:center;">
-        <input type="text" id="username-input" placeholder="USERNAME" maxlength="15" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')" style="padding:10px; font-family:'Impact'; font-size:18px; width:150px; margin-bottom:10px; border:2px solid #fff; background:#222; color:#fff;">
+        
+        <div id="login-screen">
+            <h2 style="color:#fff; font-size:45px; margin:0 0 20px 0; text-shadow: 3px 3px 0 #000;">PLAYER LOGIN</h2>
+            <input type="text" id="username-input" placeholder="ENTER USERNAME" maxlength="15" oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '')" style="padding:15px; font-family:'Impact'; font-size:24px; width:250px; margin-bottom:20px; border:3px solid #fff; background:#222; color:#fff; text-align:center;">
             <br>
-            <button id="load-btn" style="padding:10px 15px; font-family:'Impact'; font-size:18px; background:#00ffcc; border:2px solid #fff; cursor:pointer;">LOAD</button>
-            <button id="save-btn" style="padding:10px 15px; font-family:'Impact'; font-size:18px; background:#ff3366; border:2px solid #fff; color:white; cursor:pointer;">SAVE</button>
-            <div id="save-status" style="font-size:18px; color:#ffff00; margin-top:10px; text-shadow: 2px 2px 0px #000; display:none;"></div>
+            <button id="load-btn" style="padding:15px 30px; font-family:'Impact'; font-size:24px; background:#00ffcc; border:3px solid #fff; cursor:pointer; margin: 5px; text-shadow: 1px 1px 0 #000;">LOAD SAVE</button>
+            <button id="save-btn" style="padding:15px 30px; font-family:'Impact'; font-size:24px; background:#ff3366; border:3px solid #fff; color:white; cursor:pointer; margin: 5px; text-shadow: 1px 1px 0 #000;">NEW GAME</button>
+            <div id="save-status" style="font-size:22px; color:#ffff00; margin-top:20px; text-shadow: 2px 2px 0px #000; display:none;"></div>
         </div>
-        <div class="hud-container">
+
+        <div class="hud-container hidden" id="hud-bar" style="display: flex; justify-content: space-between; padding: 30px 40px; box-sizing: border-box; width: 100%;">
             <div class="hud-panel">
                 <p class="hud-text">LEVEL: <span id="level-value">1</span>/100</p>
             </div>
@@ -210,12 +227,12 @@
             </div>
         </div>
         
-        <div id="center-overlay">
+        <div id="center-overlay" class="hidden">
             <h1 class="title-main" id="title-text">RAINBOW DROPPER</h1>
             <div class="title-sub" id="action-text">CLICK OR SPACE TO DROP</div>
         </div>
         
-        <div id="controls-hint">
+        <div id="controls-hint" class="hidden">
             [ W A S D ] OR [ ARROWS ] TO MOVE WHILE FALLING
         </div>
     </div>
@@ -263,6 +280,7 @@ const ENGINE_CONFIG = {
 
 const GAME_STATES = {
     BOOT: "BOOT",
+    LOGIN: "LOGIN", // Add this line
     MENU: "MENU",
     PLAYING: "PLAYING",
     DYING: "DYING", 
@@ -1111,7 +1129,8 @@ class GameEngine {
         window.addEventListener('resize', this.onWindowResize.bind(this), false);
         this.onWindowResize();
 
-        this.setGameState(GAME_STATES.MENU);
+// Start in Login state instead of Menu
+        this.setGameState(GAME_STATES.LOGIN);
         this.gameLoop();
     }
 
@@ -1149,14 +1168,29 @@ class GameEngine {
     setGameState(newState) {
         this.gameState = newState;
         
-        if (newState === GAME_STATES.PLAYING || newState === GAME_STATES.DYING) {
-            this.overlay.classList.add('hidden');
+        const loginScreen = document.getElementById('login-screen');
+        const overlay = document.getElementById('center-overlay');
+        const hudBar = document.getElementById('hud-bar');
+        const controlsHint = document.getElementById('controls-hint');
+
+        if (newState === GAME_STATES.PLAYING || newState === GAME_STATES.DYING || newState === GAME_STATES.LOGIN) {
+            overlay.classList.add('hidden');
         } else {
-            this.overlay.classList.remove('hidden');
+            overlay.classList.remove('hidden');
         }
 
         switch (newState) {
+            case GAME_STATES.LOGIN:
+                loginScreen.classList.remove('hidden');
+                hudBar.classList.add('hidden');
+                controlsHint.classList.add('hidden');
+                this.audio.initialize(); 
+                break;
+
             case GAME_STATES.MENU:
+                loginScreen.classList.add('hidden');
+                hudBar.classList.remove('hidden');
+                controlsHint.classList.remove('hidden');
                 this.titleMain.innerText = "RAINBOW DROPPER";
                 this.titleSub.innerText = "CLICK OR SPACE TO DROP";
                 this.loadLevel(this.currentLevel);
@@ -1171,7 +1205,6 @@ class GameEngine {
                 this.deathTimer = 0;
                 this.audio.sfxHit(); 
                 this.player.velocity.set(0,0,0); 
-                
                 document.getElementById('speed-lines').style.background = 'radial-gradient(circle, transparent 10%, rgba(255,0,0,0.8) 100%)';
                 break;
 
@@ -1180,12 +1213,9 @@ class GameEngine {
                 this.titleSub.innerText = "PRESS SPACE TO RETRY";
                 this.fails++;
                 this.uiFails.innerText = this.fails;
-                
                 this.audio.sfxEpicBoom(); 
                 this.player.kill();
-                
                 this.particles.spawnSplat(this.player.group.position, 150, 0xff0000);
-                
                 document.body.style.backgroundColor = '#ffffff';
                 document.getElementById('speed-lines').style.background = 'none';
                 setTimeout(() => {
@@ -1198,7 +1228,6 @@ class GameEngine {
                 this.titleMain.innerText = "SAFE!";
                 this.titleSub.innerText = "PRESS SPACE TO ADVANCE";
                 this.audio.sfxWin();
-                
                 this.player.velocity.set(0, 0, 0);
                 break;
                 
@@ -1289,6 +1318,12 @@ class GameEngine {
         this.globalTime += dt;
 
         switch (this.gameState) {
+            case GAME_STATES.LOGIN:
+                // Camera circles slowly while waiting for login
+                this.camera.position.set(Math.sin(this.globalTime * 0.3) * 40, 20, Math.cos(this.globalTime * 0.3) * 40);
+                this.camera.lookAt(0, -10, 0);
+                break;
+
             case GAME_STATES.MENU:
                 if (this.input.consumeAction()) {
                     this.setGameState(GAME_STATES.PLAYING);
@@ -1306,7 +1341,6 @@ class GameEngine {
                 }
                 
                 this.detectCollisions();
-                
                 this.updateCamera();
                 break;
                 
@@ -1325,7 +1359,6 @@ class GameEngine {
 
             case GAME_STATES.DEAD:
                 this.particles.update(dt);
-                
                 if (this.input.consumeAction()) {
                     this.loadLevel(this.currentLevel);
                     this.setGameState(GAME_STATES.PLAYING);
@@ -1382,10 +1415,13 @@ document.getElementById('save-btn').addEventListener('click', () => {
     fetch(SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'save', username: user, level: dropperGame.currentLevel })
+        body: JSON.stringify({ action: 'save', username: user, level: 1 }) 
     })
     .then(r => r.json())
-    .then(data => showStatus("SAVED LEVEL " + data.level + "!"))
+    .then(data => {
+        dropperGame.currentLevel = 1;
+        dropperGame.setGameState(GAME_STATES.MENU); // Unlocks the game
+    })
     .catch(err => showStatus("ERROR SAVING!"));
 });
 
@@ -1396,7 +1432,7 @@ document.getElementById('load-btn').addEventListener('click', () => {
     
     showStatus("LOADING...");
     
-    fetch(SCRIPT_URL, {
+   fetch(SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'load', username: user })
@@ -1405,9 +1441,7 @@ document.getElementById('load-btn').addEventListener('click', () => {
     .then(data => {
         if(data.status === "loaded") {
             dropperGame.currentLevel = parseInt(data.level);
-            dropperGame.loadLevel(dropperGame.currentLevel);
-            dropperGame.setGameState(GAME_STATES.MENU); // Reset them to start of loaded level
-            showStatus("LOADED LEVEL " + data.level + "!");
+            dropperGame.setGameState(GAME_STATES.MENU); // Unlocks the game
         } else {
             showStatus("NO SAVE FOUND!");
         }

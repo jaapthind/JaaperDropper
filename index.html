@@ -980,7 +980,8 @@ class LevelDataBuilder {
         
         let config = {
             depth: depth,
-            safeZoneWidth: Math.max(12, 40 - (levelIndex * 0.3)), 
+            // CHANGED: Base size from 40 to 80, Minimum size from 12 to 30
+            safeZoneWidth: Math.max(30, 120 - (levelIndex * 0.3)), 
             obstacles: []
         };
 
@@ -1215,7 +1216,7 @@ class GameEngine {
                 this.uiFails.innerText = this.fails;
                 this.audio.sfxEpicBoom(); 
                 this.player.kill();
-                this.particles.spawnSplat(this.player.group.position, 150, 0xff0000);
+                this.particles.spawnSplat(this.player.group.position, 400, 0xff0000);
                 document.body.style.backgroundColor = '#ffffff';
                 document.getElementById('speed-lines').style.background = 'none';
                 setTimeout(() => {
@@ -1368,6 +1369,7 @@ class GameEngine {
             case GAME_STATES.VICTORY:
                 if (this.input.consumeAction()) {
                     this.currentLevel++;
+                    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'save', username: document.getElementById('username-input').value.trim(), level: this.currentLevel }) });
                     if (this.currentLevel > ENGINE_CONFIG.TOTAL_LEVELS) {
                         this.setGameState(GAME_STATES.GAME_OVER);
                     } else {

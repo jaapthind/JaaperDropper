@@ -262,15 +262,8 @@ const ENGINE_CONFIG = {
     FOV: 95,
     TOTAL_LEVELS: 100,
     COLORS: {
-        RAINBOW: [
-            0xff0000, // Red
-            0xff7f00, // Orange
-            0xffff00, // Yellow
-            0x00ff00, // Green
-            0x0000ff, // Blue
-            0x4b0082, // Indigo
-            0x9400d3  // Violet
-        ],
+        // Automatically generates a perfectly smooth 80-color spectrum using HSL math!
+        RAINBOW: Array.from({length: 120}, (_, i) => new THREE.Color().setHSL(i / 120, 1.0, 0.5).getHex()),
         LAVA: 0xff3300,
         SAFE: 0x00ffaa,
         DEATH: 0x111111,

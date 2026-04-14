@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ultimate 3D Rainbow Dropper - 100 Levels</title>
+    <title>Jaaper Dropper</title>
     <style>
         /* ==========================================================================
            CSS RESET & BASE STYLES
@@ -223,12 +223,12 @@
                 <p class="hud-text">LEVEL: <span id="level-value">1</span>/100</p>
             </div>
             <div class="hud-panel">
-                <p class="hud-text">FAILS: <span id="fails-value">0</span></p>
+                <p class="hud-text">DEATHS: <span id="fails-value">0</span></p>
             </div>
         </div>
         
         <div id="center-overlay" class="hidden">
-            <h1 class="title-main" id="title-text">RAINBOW DROPPER</h1>
+            <h1 class="title-main" id="title-text">Jaaper Dropper</h1>
             <div class="title-sub" id="action-text">CLICK OR SPACE TO DROP</div>
         </div>
         
@@ -239,10 +239,7 @@
 
 <script>
 /**
- * ============================================================================
- * ULTIMATE 3D RAINBOW DROPPER ENGINE
- * MASSIVE ARCHITECTURE - EXCEEDING 2000 LINES OF EXPLICIT LOGIC
- * ============================================================================
+
  */
 
 // ============================================================================
@@ -263,7 +260,7 @@ const ENGINE_CONFIG = {
     TOTAL_LEVELS: 100,
     COLORS: {
         // Automatically generates a perfectly smooth 80-color spectrum using HSL math!
-        RAINBOW: Array.from({length: 120}, (_, i) => new THREE.Color().setHSL(i / 120, 1.0, 0.5).getHex()),
+        RAINBOW: Array.from({length: 70}, (_, i) => new THREE.Color().setHSL(i / 70, 1.0, 0.5).getHex()),
         LAVA: 0xff3300,
         SAFE: 0x00ffaa,
         DEATH: 0x111111,

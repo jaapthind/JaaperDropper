@@ -1268,39 +1268,35 @@ class GameEngine {
     }
 
     updateCamera(snap = false) {
-        // 1. BASE TARGET: Move camera closer to keep it inside walls
+        // 1. BASE POSITION: Z: 5 keeps it inside the tunnel, Y: 18 gives a good top-down view
         const targetPos = this.player.group.position.clone().add(new THREE.Vector3(0, 18, 5));
         
-        // 2. ANTI-CLIPPING: Mathematically force camera to stay inside the tunnel limits
-        const camBoundary = (ENGINE_CONFIG.TUNNEL_WIDTH / 2) - 1.5; // 1.5 unit safety buffer
-        if (targetPos.x > camBoundary) targetPos.x = camBoundary;
-        if (targetPos.x < -camBoundary) targetPos.x = -camBoundary;
-        if (targetPos.z > camBoundary) targetPos.z = camBoundary;
-        if (targetPos.z < -camBoundary) targetPos.z = -camBoundary;
+        // 2. HARD BOUNDARIES: Physically stops the camera from ever touching a wall
+        const camLimit = (ENGINE_CONFIG.TUNNEL_WIDTH / 2) - 2; 
+        targetPos.x = Math.max(-camLimit, Math.min(camLimit, targetPos.x));
+        targetPos.z = Math.max(-camLimit, Math.min(camLimit, targetPos.z));
         
-        // 3. APPLY POSITION: Smoothly glide to the target
+        // 3. SMOOTH GLIDE: Uses a lower lerp value (0.1) for much smoother, less "jerky" movement
         if (snap) {
             this.camera.position.copy(targetPos);
         } else {
-            this.camera.position.lerp(targetPos, 0.15);
+            this.camera.position.lerp(targetPos, 0.1); 
         }
         
-        // 4. DYNAMIC LOOK-AHEAD: Camera leans into your turns based on velocity
+        // 4. FIXED LOOK-TARGET: No more shifting based on velocity. It stays locked on the player.
         const lookTarget = this.player.group.position.clone();
-        lookTarget.y -= 25; // Look down the tunnel
-        lookTarget.x += this.player.velocity.x * 0.04; // Look slightly in the direction you are moving
-        lookTarget.z += this.player.velocity.z * 0.04;
+        lookTarget.y -= 25; // Still look down so you can see obstacles
         this.camera.lookAt(lookTarget);
 
-        // 5. DYNAMIC FOV: Widen the camera lens as you fall faster (Speed Effect)
+        // 5. STABLE FOV: Only widens very slightly at high speeds
         if (this.gameState === GAME_STATES.PLAYING) {
             const speedRatio = Math.abs(this.player.velocity.y) / ENGINE_CONFIG.MAX_TERMINAL_VELOCITY;
-            const targetFOV = ENGINE_CONFIG.FOV + (speedRatio * 18); // Add up to 18 degrees of FOV at max speed
-            this.camera.fov += (targetFOV - this.camera.fov) * 0.1; // Smoothly transition the lens
+            const targetFOV = ENGINE_CONFIG.FOV + (speedRatio * 8); // Reduced from 18 to 8 for stability
+            this.camera.fov += (targetFOV - this.camera.fov) * 0.05; 
             this.camera.updateProjectionMatrix();
         }
 
-        // 6. LIGHTING: Keep lights glued to the player
+        // 6. LIGHTING: Keep it centered on the player
         this.dirLight.position.set(this.player.group.position.x, this.player.group.position.y + 20, this.player.group.position.z);
         this.playerLight.position.copy(this.player.group.position);
     }

@@ -198,6 +198,13 @@
             text-shadow: 2px 2px 0px #000000;
             letter-spacing: 2px;
         }
+        #landscape-warning { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #00ffcc; z-index: 9999; text-align: center; justify-content: center; align-items: center; flex-direction: column; font-family: 'Impact'; }
+        #landscape-warning h1 { font-size: 60px; margin: 0; }
+        @media screen and (max-width: 900px) and (orientation: portrait) { #landscape-warning { display: flex !important; } #game-canvas, #ui-layer { display: none !important; } }
+        #joystick-zone { position: absolute; bottom: 30px; left: 30px; width: 150px; height: 150px; z-index: 100; pointer-events: auto; }
+        #joystick-base { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 120px; height: 120px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 3px solid rgba(255, 255, 255, 0.3); }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; border-radius: 50%; background: rgba(0, 255, 204, 0.8); box-shadow: 0 0 20px rgba(0, 255, 204, 1); pointer-events: none; }
+        @media (pointer: fine) { #joystick-zone { display: none !important; } }
     </style>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -235,6 +242,8 @@
         <div id="controls-hint" class="hidden">
             [ W A S D ] OR [ ARROWS ] TO MOVE WHILE FALLING
         </div>
+        <div id="landscape-warning"><h1>ROTATE PHONE</h1><p style="font-size: 24px; color: #fff;">PLAY IN LANDSCAPE</p></div>
+        <div id="joystick-zone" style="display:none;"><div id="joystick-base"></div><div id="joystick-stick"></div></div>
     </div>
 
 <script>
@@ -250,7 +259,7 @@ const ENGINE_CONFIG = {
     TUNNEL_WIDTH: 80,
     TUNNEL_DEPTH_BASE: 1000,
     TUNNEL_DEPTH_MULT: 150,
-    BASE_GRAVITY: 50.0,
+    BASE_GRAVITY: 94.0,
     MAX_TERMINAL_VELOCITY: 300.0,
     PLAYER_SIZE: 2.5,
     PLAYER_SPEED: 300.0,
@@ -421,77 +430,46 @@ class SynthesisEngine {
 // 4. INPUT MANAGEMENT
 // ============================================================================
 
+class VirtualJoystick {
+    constructor() {
+        this.zone = document.getElementById('joystick-zone');
+        this.stick = document.getElementById('joystick-stick');
+        this.active = false; this.value = { x: 0, y: 0 }; this.maxRadius = 50;
+        if (!this.zone) return;
+        this.zone.addEventListener('touchstart', (e) => { e.preventDefault(); this.active = true; this.update(e.touches[0]); }, { passive: false });
+        this.zone.addEventListener('touchmove', (e) => { if (this.active) { e.preventDefault(); this.update(e.touches[0]); } }, { passive: false });
+        this.zone.addEventListener('touchend', () => { this.active = false; this.value = { x: 0, y: 0 }; this.stick.style.transform = `translate(-50%, -50%)`; });
+    }
+    update(touch) {
+        const rect = this.zone.getBoundingClientRect();
+        let dx = touch.clientX - (rect.left + rect.width / 2);
+        let dy = touch.clientY - (rect.top + rect.height / 2);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > this.maxRadius) { dx = (dx / dist) * this.maxRadius; dy = (dy / dist) * this.maxRadius; }
+        this.stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        this.value = { x: dx / this.maxRadius, y: dy / this.maxRadius };
+    }
+}
+
 class InputManager {
     constructor() {
-        this.keyState = {
-            KeyW: false, KeyA: false, KeyS: false, KeyD: false,
-            ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false,
-            Space: false
-        };
-        this.mouseState = { clicked: false };
+        this.keyState = { KeyW: false, KeyA: false, KeyS: false, KeyD: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false, Space: false };
         this.actionTriggered = false;
-        
-        this.setupListeners();
+        this.joystick = new VirtualJoystick();
+        window.addEventListener('keydown', (e) => { if (this.keyState.hasOwnProperty(e.code)) this.keyState[e.code] = true; if (e.code === 'Space') this.actionTriggered = true; });
+        window.addEventListener('keyup', (e) => { if (this.keyState.hasOwnProperty(e.code)) this.keyState[e.code] = false; });
+        window.addEventListener('mousedown', () => this.actionTriggered = true);
+        window.addEventListener('touchstart', (e) => { if (e.target.id !== 'joystick-zone' && e.target.id !== 'joystick-base') this.actionTriggered = true; }, { passive: false });
     }
-
-    setupListeners() {
-        window.addEventListener('keydown', (e) => {
-            if (this.keyState.hasOwnProperty(e.code)) {
-                this.keyState[e.code] = true;
-            }
-            if (e.code === 'Space') this.actionTriggered = true;
-        });
-
-        window.addEventListener('keyup', (e) => {
-            if (this.keyState.hasOwnProperty(e.code)) {
-                this.keyState[e.code] = false;
-            }
-        });
-
-        window.addEventListener('mousedown', () => {
-            this.mouseState.clicked = true;
-            this.actionTriggered = true;
-        });
-
-        window.addEventListener('mouseup', () => {
-            this.mouseState.clicked = false;
-        });
-
-        window.addEventListener('touchstart', (e) => {
-            this.mouseState.clicked = true;
-            this.actionTriggered = true;
-        }, { passive: false });
-
-        window.addEventListener('touchend', () => {
-            this.mouseState.clicked = false;
-        }, { passive: false });
-    }
-
     getHorizontalAxis() {
-        let x = 0;
-        let z = 0;
-        
-        if (this.keyState.KeyW || this.keyState.ArrowUp) z -= 1;
-        if (this.keyState.KeyS || this.keyState.ArrowDown) z += 1;
-        if (this.keyState.KeyA || this.keyState.ArrowLeft) x -= 1;
-        if (this.keyState.KeyD || this.keyState.ArrowRight) x += 1;
-        
-        if (x !== 0 && z !== 0) {
-            const length = Math.sqrt(x*x + z*z);
-            x /= length;
-            z /= length;
-        }
-        
+        let x = 0, z = 0;
+        if (this.keyState.KeyW || this.keyState.ArrowUp) z -= 1; if (this.keyState.KeyS || this.keyState.ArrowDown) z += 1;
+        if (this.keyState.KeyA || this.keyState.ArrowLeft) x -= 1; if (this.keyState.KeyD || this.keyState.ArrowRight) x += 1;
+        if (x !== 0 && z !== 0) { const len = Math.sqrt(x * x + z * z); x /= len; z /= len; }
+        if (this.joystick && (this.joystick.value.x !== 0 || this.joystick.value.y !== 0)) { x = this.joystick.value.x; z = this.joystick.value.y; }
         return { x, z };
     }
-
-    consumeAction() {
-        if (this.actionTriggered) {
-            this.actionTriggered = false;
-            return true;
-        }
-        return false;
-    }
+    consumeAction() { if (this.actionTriggered) { this.actionTriggered = false; return true; } return false; }
 }
 
 // ============================================================================
@@ -1158,6 +1136,7 @@ class GameEngine {
 
     setGameState(newState) {
         this.gameState = newState;
+        if (document.getElementById('joystick-zone')) document.getElementById('joystick-zone').style.display = (newState === GAME_STATES.PLAYING) ? 'block' : 'none';
         
         const loginScreen = document.getElementById('login-screen');
         const overlay = document.getElementById('center-overlay');

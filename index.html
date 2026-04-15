@@ -218,6 +218,7 @@
     </style>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
 </head>
 <body>
 
@@ -285,6 +286,11 @@ const ENGINE_CONFIG = {
         SAFE: 0x00ffaa,
         DEATH: 0x111111,
         GLASS: 0xffffff
+    },
+    NETWORK: {
+        API_KEY: 'TpX75g.9HcpSg:DJjZHfEbF3nMz1_h4SSZDqgBJPJydD7_I1zCNiGd9uM',
+        CHANNEL_NAME: 'dropper-live',
+        UPDATE_RATE: 100
     }
 };
 
@@ -1061,6 +1067,81 @@ class LevelDataBuilder {
 // 10. CORE GAME ENGINE LOOP
 // ============================================================================
 
+                class MultiplayerManager {
+                constructor(game) {
+                    this.game = game;
+                    this.ably = new Ably.Realtime(ENGINE_CONFIG.NETWORK.API_KEY);
+                    this.channel = this.ably.channels.get(ENGINE_CONFIG.NETWORK.CHANNEL_NAME);
+                    this.otherPlayers = {}; 
+                    this.lastUpdate = 0;
+            
+                    this.channel.subscribe('pos', (msg) => {
+                        if (msg.clientId === this.ably.auth.clientId) return;
+                        this.updateRemotePlayer(msg.clientId, msg.data);
+                    });
+                }
+            
+                createTextSprite(message) {
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = 256;
+                    canvas.height = 128;
+                    
+                    context.font = "Bold 40px Impact";
+                    context.textAlign = "center";
+                    context.textBaseline = "middle";
+                    
+                    context.strokeStyle = "black";
+                    context.lineWidth = 6;
+                    context.strokeText(message, 128, 64);
+                    
+                    context.fillStyle = "white";
+                    context.fillText(message, 128, 64);
+            
+                    const texture = new THREE.CanvasTexture(canvas);
+                    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+                    const sprite = new THREE.Sprite(spriteMaterial);
+                    
+                    sprite.scale.set(6, 3, 1); 
+                    return sprite;
+                }
+            
+                updateRemotePlayer(id, data) {
+                    if (!this.otherPlayers[id]) {
+                        const playerGroup = new THREE.Group();
+            
+                        const ghostGeo = new THREE.BoxGeometry(2, 2, 2);
+                        const ghostMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.6 });
+                        const bodyMesh = new THREE.Mesh(ghostGeo, ghostMat);
+                        playerGroup.add(bodyMesh);
+            
+                        const nameTag = this.createTextSprite(data.username || "GUEST");
+                        nameTag.position.y = 3; 
+                        playerGroup.add(nameTag);
+            
+                        this.game.scene.add(playerGroup);
+                        this.otherPlayers[id] = playerGroup;
+                    }
+                    
+                    this.otherPlayers[id].position.set(data.x, data.y, data.z);
+                }
+            
+                broadcast(position) {
+                    const now = Date.now();
+                    if (now - this.lastUpdate > ENGINE_CONFIG.NETWORK.UPDATE_RATE) {
+                        const currentUsername = document.getElementById('username-input').value.trim() || "GUEST";
+                        
+                        this.channel.publish('pos', { 
+                            x: position.x, 
+                            y: position.y, 
+                            z: position.z,
+                            username: currentUsername 
+                        });
+                        this.lastUpdate = now;
+                    }
+                }
+            }
+
 class GameEngine {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
@@ -1089,6 +1170,7 @@ class GameEngine {
         this.audio = new SynthesisEngine();
         this.player = new RobloxCharacter(this.scene);
         this.particles = new ParticleSystem(this.scene);
+        this.network = new MultiplayerManager(this);
 
         this.gameState = GAME_STATES.BOOT;
         this.currentLevel = 1;
@@ -1323,6 +1405,7 @@ class GameEngine {
                 
                 this.detectCollisions();
                 this.updateCamera();
+                this.network.broadcast(this.player.group.position);
                 break;
                 
             case GAME_STATES.DYING:
